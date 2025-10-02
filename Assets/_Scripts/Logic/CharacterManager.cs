@@ -68,9 +68,9 @@ public class CharacterManager : MonoBehaviour
     public List<RobotState> GetAllRobotStates() => new List<RobotState>(_robotFleet);
     
     /// <summary>
-    /// 获取主角（艾玛）的状态。
+    /// 获取主角的状态。
     /// </summary>
-    public HumanState GetEmmaState() => _humanCharacters.Count > 0 ? _humanCharacters[0] : null;
+    public HumanState GetHumanState() => _humanCharacters.Count > 0 ? _humanCharacters[0] : null;
 
     #endregion
 
@@ -79,12 +79,12 @@ public class CharacterManager : MonoBehaviour
     /// <summary>
     /// 添加一个新的棋子（当前只实现机器人）。
     /// </summary>
-    public void AddPawn(PawnData pawnBlueprint)
+    public void AddPawn(CardData pawnBlueprint)
     {
         if (pawnBlueprint is RobotPawnData robotData)
         {
             _robotFleet.Add(new RobotState(robotData));
-            Debug.Log($"New robot '{robotData.pawnName}' added to fleet.");
+            Debug.Log($"New robot '{robotData.name}' added to fleet.");
             GameEvents.TriggerGameStateChanged();
         }
         // else if (pawnBlueprint is HumanPawnData humanData) { ... } // 未来可扩展以添加新的人类
@@ -93,7 +93,7 @@ public class CharacterManager : MonoBehaviour
     /// <summary>
     /// 根据InstanceID移除一个棋子（人类或机器人）。
     /// </summary>
-    public void RemovePawn(string instanceID)
+    public void RemovePawn(int instanceID)
     {
         // 尝试从机器人舰队中移除
         int removedCount = _robotFleet.RemoveAll(r => r.instanceID == instanceID);
@@ -121,7 +121,7 @@ public class CharacterManager : MonoBehaviour
     /// <summary>
     /// 修改指定人类的状态。
     /// </summary>
-    public void ModifyHumanState(string humanInstanceID, int healthChange, int moraleChange, float hungerChange)
+    public void ModifyHumanState(int humanInstanceID, int healthChange, int moraleChange, float hungerChange)
     {
         HumanState target = _humanCharacters.Find(h => h.instanceID == humanInstanceID);
         if (target == null)
@@ -130,7 +130,7 @@ public class CharacterManager : MonoBehaviour
             return;
         }
 
-        HumanPawnData blueprint = _dataManager.GetPawnData(target.pawnDataID) as HumanPawnData;
+        HumanPawnData blueprint = _dataManager.GetCardData(target.pawnDataID) as HumanPawnData;
         if (blueprint == null) return;
 
         target.currentHealth += healthChange;
@@ -149,7 +149,7 @@ public class CharacterManager : MonoBehaviour
     /// 修改指定机器人的核心属性。
     /// </summary>
     public void ModifyRobotState(
-        string robotInstanceID, 
+        int robotInstanceID, 
         int movementChange = 0, 
         int calculationChange = 0, 
         int searchChange = 0, 
@@ -187,7 +187,7 @@ public class CharacterManager : MonoBehaviour
     /// 未提供的属性将保持不变。
     /// </summary>
     public void SetRobotAttributes(
-        string robotInstanceID, 
+        int robotInstanceID, 
         int? movement = null, 
         int? calculation = null, 
         int? search = null, 

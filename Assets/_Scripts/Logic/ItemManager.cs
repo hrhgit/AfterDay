@@ -11,7 +11,7 @@ public class ItemManager : MonoBehaviour // <--- 名称已更改
     public static ItemManager Instance { get; private set; } // <--- 名称已更改
 
     // 运行时的数据存储
-    private Dictionary<string, int> _stackedItems = new Dictionary<string, int>();
+    private Dictionary<int, int> _stackedItems = new Dictionary<int, int>();
     private List<ItemInstance> _itemInstances = new List<ItemInstance>(); // <--- 名称已更改
 
     private void Awake()
@@ -88,14 +88,14 @@ public class ItemManager : MonoBehaviour // <--- 名称已更改
              }
          }
  
-         Debug.Log($"Added {quantity} of '{item.itemName}' to inventory.");
+         Debug.Log($"Added {quantity} of '{item.name}' to inventory.");
          GameEvents.TriggerGameStateChanged(); // 通知UI和其他系统
      }
  
      /// <summary>
      /// 从库存消耗指定数量的物品。
      /// </summary>
-     public void ConsumeItem(string itemID, int quantity = 1)
+     public void ConsumeItem(int itemID, int quantity = 1)
      {
          if (quantity <= 0 || !HasItem(itemID, quantity))
          {
@@ -127,7 +127,7 @@ public class ItemManager : MonoBehaviour // <--- 名称已更改
              }
          }
  
-         Debug.Log($"Consumed {quantity} of '{itemData.itemName}'.");
+         Debug.Log($"Consumed {quantity} of '{itemData.name}'.");
          GameEvents.TriggerGameStateChanged();
      }
      /// <summary>
@@ -161,7 +161,7 @@ public class ItemManager : MonoBehaviour // <--- 名称已更改
     /// <summary>
     /// 检查是否有足够数量的特定物品。
     /// </summary>
-    public bool HasItem(string itemID, int quantity = 1)
+    public bool HasItem(int itemID, int quantity = 1)
     {
         int totalCount = 0;
         
@@ -202,9 +202,9 @@ public class ItemManager : MonoBehaviour // <--- 名称已更改
     /// 获取所有可堆叠物品的副本字典。
     /// 返回副本是为了防止外部脚本直接修改库存数据。
     /// </summary>
-    public Dictionary<string, int> GetStackedItems()
+    public Dictionary<int, int> GetStackedItems()
     {
-        return new Dictionary<string, int>(_stackedItems);
+        return new Dictionary<int, int>(_stackedItems);
     }
 
     /// <summary>
@@ -260,7 +260,7 @@ public class ItemManager : MonoBehaviour // <--- 名称已更改
     {
         return new ItemsState // <--- 返回类型已更改
         {
-            stackedItems = new Dictionary<string, int>(_stackedItems),
+            stackedItems = new Dictionary<int, int>(_stackedItems),
             itemInstances = new List<ItemInstance>(_itemInstances) // <--- 名称已更改
         };
     }
@@ -270,7 +270,7 @@ public class ItemManager : MonoBehaviour // <--- 名称已更改
     /// </summary>
     public void SetState(ItemsState state) // <--- 参数类型已更改
     {
-        _stackedItems = state.stackedItems ?? new Dictionary<string, int>();
+        _stackedItems = state.stackedItems ?? new Dictionary<int, int>();
         _itemInstances = state.itemInstances ?? new List<ItemInstance>(); // <--- 名称已更改
         
         Debug.Log("ItemManager state loaded.");

@@ -4,12 +4,12 @@ using System.Collections.Generic;
 [System.Serializable]
 public class ItemsState
 {
-    public Dictionary<string, int> stackedItems;
+    public Dictionary<int, int> stackedItems;
     public List<ItemInstance> itemInstances;
 
     public ItemsState()
     {
-        stackedItems = new Dictionary<string, int>();
+        stackedItems = new Dictionary<int, int>();
         itemInstances = new List<ItemInstance>();
     }
 }
@@ -18,10 +18,10 @@ public class ItemsState
 [System.Serializable]
 public class ItemInstance
 {
-    public string itemID;
+    public int itemID;
     public int turnsRemaining;
 
-    public ItemInstance(string id, int spoilageTurns)
+    public ItemInstance(int id, int spoilageTurns)
     {
         itemID = id;
         turnsRemaining = spoilageTurns > 0 ? spoilageTurns : -1;

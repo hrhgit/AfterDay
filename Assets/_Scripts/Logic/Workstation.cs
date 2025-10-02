@@ -7,13 +7,13 @@ public class Workstation : MonoBehaviour
     {
         public ActionRecipeData recipe;
         public int turnsRemaining;
-        public List<PawnData> assignedPawns;
+        public List<CardData> assignedPawns;
 
-        public ActiveTask(ActionRecipeData recipe, List<PawnData> pawns)
+        public ActiveTask(ActionRecipeData recipe, List<CardData> pawns)
         {
             this.recipe = recipe;
             this.turnsRemaining = Mathf.Max(1, recipe.turnsToComplete);
-            this.assignedPawns = new List<PawnData>(pawns);
+            this.assignedPawns = new List<CardData>(pawns);
         }
     }
 
@@ -31,7 +31,7 @@ public class Workstation : MonoBehaviour
         GameEvents.OnTurnEnd -= ProcessTurn;
     }
 
-    private void AssignAction(ActionRecipeData recipe, List<PawnData> pawns)
+    private void AssignAction(ActionRecipeData recipe, List<CardData> pawns)
     {
         _activeTasks.Add(new ActiveTask(recipe, pawns));
         Debug.Log($"Action '{recipe.actionName}' assigned.");

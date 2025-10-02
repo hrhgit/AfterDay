@@ -15,7 +15,7 @@ public class EventManager : MonoBehaviour
 
     // 运行时状态
     private readonly List<ActiveEventState> _activeEvents = new List<ActiveEventState>();
-    private IReadOnlyDictionary<string, EventData> _eventDatabase; // 从DataManager获取，设为只读
+    private IReadOnlyDictionary<int, EventData> _eventDatabase; // 从DataManager获取，设为只读
 
     private void Awake()
     {
@@ -34,8 +34,8 @@ public class EventManager : MonoBehaviour
         _itemManager = ItemManager.Instance;
         _dialogueManager = DialogueManager.Instance;
 
-        // 2. 从DataManager获取完整的事件数据库
-        _eventDatabase = _dataManager.GetEventDatabase();
+        
+        
 
         // 订阅回合结束事件
         GameEvents.OnTurnEnd += ProcessTurn;
@@ -48,7 +48,7 @@ public class EventManager : MonoBehaviour
         
     }
 
-    public void TryTriggerEvent(string eventID)
+    public void TryTriggerEvent(int eventID)
     {
         if (!_eventDatabase.TryGetValue(eventID, out var eventData))
         {

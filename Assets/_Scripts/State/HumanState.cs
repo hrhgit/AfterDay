@@ -6,11 +6,11 @@ public class HumanState // 从 EmmaState 改名为 HumanState
 {
     // 关键链接：这个状态对应的是哪个 HumanPawnData 蓝图？
     // 虽然目前只有一个艾玛，但未来可能会有其他人类
-    public string pawnDataID; 
+    public int pawnDataID; 
 
     // 实例唯一ID：用来区分不同的“人类”实例。
     // 对于艾玛来说，这个ID就是她自己的ID。
-    public string instanceID; 
+    public int instanceID; 
 
     [Header("动态属性")]
     public int currentHealth; // 当前健康值 (0-initialHealth)

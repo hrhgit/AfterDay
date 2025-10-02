@@ -9,8 +9,8 @@ public static class GameEvents
     public static event Action OnTurnEnd;
     public static void TriggerTurnEnd() => OnTurnEnd?.Invoke();
 
-    public static event Action<ActionRecipeData, List<PawnData>> OnActionAssigned;
-    public static void TriggerActionAssigned(ActionRecipeData recipe, List<PawnData> pawns) => OnActionAssigned?.Invoke(recipe, pawns);
+    public static event Action<ActionRecipeData, List<CardData>> OnActionAssigned;
+    public static void TriggerActionAssigned(ActionRecipeData recipe, List<CardData> pawns) => OnActionAssigned?.Invoke(recipe, pawns);
 
     public static event Action OnGameStateChanged;
     public static void TriggerGameStateChanged() => OnGameStateChanged?.Invoke();

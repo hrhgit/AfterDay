@@ -3,8 +3,8 @@ using UnityEngine;
 [System.Serializable]
 public class RobotState
 {
-    public string pawnDataID;
-    public string instanceID;
+    public int pawnDataID;
+    public int instanceID;
 
     // 移除 currentEnergy，添加四个核心属性
     public int movement;
@@ -19,7 +19,7 @@ public class RobotState
     public RobotState(RobotPawnData blueprint)
     {
         pawnDataID = blueprint.UniqueID;
-        instanceID = System.Guid.NewGuid().ToString();
+        instanceID = UnityEngine.Random.Range(100000, 999999); // 生成6位随机数作为实例ID
         
         // 将蓝图中的基础属性作为这个实例的初始属性
         movement = blueprint.movement;

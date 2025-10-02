@@ -1,12 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[System.Serializable]
-public struct ResourceCost
-{
-    public ResourceData resource;
-    public int amount;
-}
+
 
 [CreateAssetMenu(fileName = "NewActionRecipe", menuName = "Game Data/Action Recipe")]
 public class ActionRecipeData : GameAsset
@@ -15,8 +10,8 @@ public class ActionRecipeData : GameAsset
 
     [Header("Requirements")]
     public LocationData requiredLocation;
-    public List<PawnData> requiredPawns = new List<PawnData>();
-    public List<ResourceCost> costs = new List<ResourceCost>();
+    public List<CardData> requiredPawns = new List<CardData>();
+    
 
     [Header("Execution")]
     public int turnsToComplete = 1;

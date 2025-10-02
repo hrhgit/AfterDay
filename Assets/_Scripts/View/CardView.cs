@@ -1,31 +1,23 @@
 using UnityEngine;
-using TMPro; // 如果使用TextMeshPro
 using UnityEngine.UI;
+using TMPro;
 
-// 这个脚本负责单个卡牌的显示和交互 (比如拖拽)
-public class CardView : MonoBehaviour // ...可以实现IDragHandler等接口
+// CardView现在继承自DraggableObject
+public class CardView : DraggableObject
 {
+    [Header("UI 引用")]
     [SerializeField] private TextMeshProUGUI nameText;
     [SerializeField] private Image iconImage;
 
-    public GameAsset cardData { get; private set; } // 保存这张卡牌对应的数据资产
-
-    // 外部调用的填充方法
-    public void Populate(GameAsset data, object state, int stackCount)
+    // 重写Populate方法，实现自己的UI填充逻辑
+    public override void Populate(GameAsset data, object state)
     {
         this.cardData = data;
-
-        if (data is PawnData pawnData)
+        this.state = state;
+        if (data is CardData pawnData)
         {
-            nameText.text = pawnData.pawnName;
+            nameText.text = pawnData.name;
             iconImage.sprite = pawnData.icon;
-            // 还可以根据 state (RobotState/HumanState) 更新UI，比如显示能量条
-        }
-        else if (data is ItemData itemData)
-        {
-            nameText.text = itemData.itemName;
-            iconImage.sprite = itemData.icon;
-            
         }
     }
 }

@@ -1,0 +1,37 @@
+{
+  "fileRules": {
+    "Cards.xlsx": {
+      "Robot": {
+        "ID": {
+          "cellEditor": "multiSelect",
+          "cellEditorParams": {
+            "dataSource": "ds_Tags_xlsx_Robot_col1"
+          }
+        },
+        "Tag": {
+          "cellEditor": "multiSelect",
+          "cellEditorParams": {
+            "dataSource": "ds_Tags_xlsx_Robot_Tag"
+          }
+        }
+      }
+    }
+  },
+  "dataSources": {
+    "ds_Tags_xlsx_Tags_catagory": {
+      "file": "Tags.xlsx",
+      "sheet": "Tags",
+      "column": "catagory"
+    },
+    "ds_Tags_xlsx_Robot_Tag": {
+      "file": "Tags.xlsx",
+      "sheet": "Robot",
+      "column": "Tag"
+    },
+    "ds_Tags_xlsx_Robot_col1": {
+      "file": "Tags.xlsx",
+      "sheet": "Robot",
+      "columnIndex": 1
+    }
+  }
+}
