@@ -52,12 +52,3 @@ public static class ImporterCache
         }
     }
 }
-
-/// <summary>
-/// 所有数据ScriptableObject的始祖类，用于让缓存可以通用。
-/// （这个类您应该已经有了，放在这里以确保代码完整性）
-/// </summary>
-public abstract class GameAsset : ScriptableObject
-{
-    public int UniqueID;
-}
