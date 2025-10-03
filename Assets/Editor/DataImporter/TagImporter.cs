@@ -13,7 +13,7 @@ public class TagImporter : BaseDataImporter
     private const string ExcelPath = "Assets/Editor/Sheets/Tags.xlsx";
     private const string OutputPath = "Assets/Resources/Data/Tags";
 
-    [MenuItem("游戏工具/导入数据/★ 导入标签 (Tags)")]
+    [MenuItem("游戏工具/从Excel导入标签数据")]
     public static void RunImport()
     {
         // 创建实例并调用父类的统一入口方法

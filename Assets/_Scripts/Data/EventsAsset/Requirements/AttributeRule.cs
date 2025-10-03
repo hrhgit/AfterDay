@@ -18,12 +18,8 @@ public class AttributeRule : ValidationRule
     public ComparisonType comparison;
     public float targetValue;
 
-    public override bool IsValid(GameAsset data, object state)
+    protected override bool IsValidCore(GameAsset data, object state)
     {
-        if (!base.IsValid(data, state))
-        {
-            return false;
-        }
         
         // 优先在 state 中查找
         if (state != null && TryGetAttributeValue(state, out float stateValue))

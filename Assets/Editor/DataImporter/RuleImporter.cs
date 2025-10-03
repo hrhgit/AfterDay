@@ -69,11 +69,11 @@ public class RuleImporter : BaseDataImporter
             {
                 string oldJson = JsonUtility.ToJson(finalRule); // 记录填充类别前的状态
 
-                finalRule.allowedCategories.Clear();
+                finalRule.requiredTags.Clear();
                 if (!string.IsNullOrWhiteSpace(categoryStr) && categoryStr != "*")
                 {
                     // 解析并添加类别
-                    finalRule.allowedCategories.Add(ParseEnum<CardData.Category>(categoryStr, CardData.Category.Unaligned));
+                    finalRule.requiredTags.Add(ParseEnum<Tags>(categoryStr, Tags.Card));
                 }
                 
                 // 只有当类别信息发生变化时，才标记资产

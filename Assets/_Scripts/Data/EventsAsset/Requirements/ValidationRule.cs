@@ -1,6 +1,5 @@
 using UnityEngine;
 using System.Collections.Generic;
-using System.Linq;
 
 /// <summary>
 /// 所有验证规则的抽象基类。
@@ -18,27 +17,25 @@ public abstract class ValidationRule : ScriptableObject
     /// </summary>
     public virtual bool IsValid(GameAsset data, object state)
     {
-        // 步骤1：检查传入的是否为 CardData
-        if (!(data is CardData card))
-        {
-            return false; // 如果拖拽的不是卡牌，则不符合任何基于标签的规则
-        }
+        var card = data as CardData;
+        if (card == null) return false;
 
-        // 步骤2：执行内置的标签检测
-        if (requiredTags.Any()) // 仅当列表不为空时才进行检测
+        // 步骤2：基础标签校验（避免 LINQ 分配）
+        if (requiredTags != null && requiredTags.Count > 0)
         {
-            // 遍历所有必需的标签
-            foreach (var requiredTag in requiredTags)
+            for (int i = 0; i < requiredTags.Count; i++)
             {
-                // 只要有一个必需的标签卡牌没有，验证就失败
-                if (!card.HasTag(requiredTag))
-                {
+                if (!card.HasTag(requiredTags[i]))
                     return false;
-                }
             }
         }
 
         // 步骤3：如果所有基础验证都通过，则返回true，由子类决定后续
-        return true;
+        return IsValidCore(card, state);
     }
+
+    /// <summary>
+    /// 子类扩展点：在基础验证通过后，做更具体的判断。
+    /// </summary>
+    protected virtual bool IsValidCore(GameAsset card, object state) => true;
 }

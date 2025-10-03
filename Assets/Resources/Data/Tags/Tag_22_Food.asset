@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 157c1f5abe5afe54fb24fac354c6bb42, type: 3}
+  m_Name: Tag_22_Food
+  m_EditorClassIdentifier: 
+  id: 22
+  tagName: Food
+  description: "\u98DF\u7269\u7C7B"
+  parent: {fileID: 11400000, guid: 8cced774bce725f4fa552ec51a4ab39a, type: 2}
