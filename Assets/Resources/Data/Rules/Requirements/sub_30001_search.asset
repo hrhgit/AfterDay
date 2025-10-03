@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c45782a775e62f343bc76935cab064d4, type: 3}
   m_Name: sub_30001_search
   m_EditorClassIdentifier: 
-  allowedCategories: 02000000
+  requiredTags: 01000000
   attributeName: search
-  comparison: 0
+  comparison: 4
   targetValue: 1

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157c1f5abe5afe54fb24fac354c6bb42, type: 3}
   m_Name: Tag_11_Robot
   m_EditorClassIdentifier: 
-  id: 11
+  UniqueID: 11
   tagName: Robot
   description: "\u673A\u5668\u4EBA"
   parent: {fileID: 11400000, guid: b8242650ca621a94192dfd64b1fe0c88, type: 2}

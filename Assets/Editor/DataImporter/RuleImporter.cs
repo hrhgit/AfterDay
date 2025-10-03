@@ -35,7 +35,6 @@ public class RuleImporter : BaseDataImporter
     protected override void Process()
     {
         Debug.Log("--- 开始导入需求规则 ---");
-        TagImporter.CacheTags();
         Directory.CreateDirectory(OutputPath);
         
         // 这是RuleImporter特有的准备工作：预加载所有卡牌/物品资产
@@ -55,8 +54,8 @@ public class RuleImporter : BaseDataImporter
             }
 
             string ruleID = row["ID"].ToString().Trim();
-            string name = row["Name"].ToString().Trim();
-            string categoryStr = row["catagory"].ToString().Trim(); // 读取新的类别列
+            string name = row["name"].ToString().Trim();
+            string categoryStr = row["Tags"].ToString().Trim(); // 读取新的类别列
             string requirementStr = row["Requirement"].ToString().Trim();
             
             if (string.IsNullOrWhiteSpace(ruleID)) continue;

@@ -1,4 +1,3 @@
-// 引入Unity和C#的必要库
 using UnityEngine;
 using UnityEditor;
 using System;
@@ -6,115 +5,95 @@ using System.IO;
 using System.Data;
 using ExcelDataReader;
 using System.Collections.Generic;
-using System.Reflection;
 
-// 【注意】: 此脚本依赖于一个静态的 ImporterCache.cs 文件。
-// ImporterCache.cs 负责提供全局唯一的 UniversalCache<int, GameAsset>
-// 用以在所有导入器之间共享最终生成的 ScriptableObject 资产。
+#region Pre-Processing Data Structures
+// --- 与表头预处理相关的数据结构 ---
 
-/// <summary>
-/// 存储已解析的Excel列表头信息。
-/// </summary>
 public class ColumnInfo
 {
-    // 新增：列的索引，用于更安全地从DataRow中按位置读取数据
     public int Index;
-    // 字段英文名 (来自第1行)
     public string FieldName;
-    // 关键字 (来自第3行, 会被转为小写以方便处理)
     public string Keyword;
-    // 关键字数据 (来自第4行)
     public string KeywordData;
 }
 
-/// <summary>
-/// 所有Excel导入器的通用父类。
-/// 实现了基于“表头预处理”思想的、高度可扩展的导入逻辑。
-/// </summary>
+public enum ColumnProcessingType { Normal, Path, Ref }
+
+public class ProcessedColumn
+{
+    public ColumnInfo OriginalInfo;
+    public ColumnProcessingType Type;
+    public object ProcessedData;
+}
+#endregion
+
 public abstract class BaseDataImporter
 {
-    // 成员变量，用于在单个导入器实例内部缓存引用表的ID->Name映射。
-    // Key是引用表路径(如 "Tags.xlsx"), Value是该表的 "ID -> Name" 映射字典。
-    private Dictionary<string, Dictionary<int, string>> _refCache;
-
+    private Dictionary<string, Dictionary<int, string>> _preCachedRefTables;
     #region Configurable Rules
-    // Excel表头定义
-    protected virtual int HeaderRow => 1;
-    protected virtual int DataStartRow => 5; // 数据从第5行开始
+    protected virtual int DataStartRow => 5;
     protected virtual string IdColumnName => "ID";
     #endregion
 
-    /// <summary>
-    /// 公开的导入入口方法。
-    /// </summary>
+    
     public void Import()
     {
+        _preCachedRefTables = new Dictionary<string, Dictionary<int, string>>();
+
         Process();
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
         Debug.Log($"导入流程 '{this.GetType().Name}' 完成！");
     }
 
-    /// <summary>
-    /// 子类需要实现的具体处理逻辑。
-    /// </summary>
     protected abstract void Process();
 
-    #region Core Processing Logic
+
+    #region Header Pre-Processing
+    // --- 表头预处理核心功能区 ---
 
     /// <summary>
-    /// 统一的Excel工作表处理流程。
+    /// 【入口】表头“深加工”处理器。
+    /// 它不仅解析表头，还会根据关键字执行预处理工作（例如为ref规则预缓存数据）。
     /// </summary>
-    protected void ProcessSheet<T>(string filePath, string sheetName, string outputPath, string namePrefix) where T : GameAsset
+    protected List<ProcessedColumn> ProcessHeader(DataTable table)
     {
-        DataTable table = ReadExcelSheet(filePath, sheetName);
-        if (table == null) return;
+        var processedList = new List<ProcessedColumn>();
+        List<ColumnInfo> originalHeader = ParseHeader(table);
 
-        // 1. 【预处理阶段】解析表头，并根据 ref 关键字预缓存依赖项
-        List<ColumnInfo> headerInfo = ParseHeader(table);
-
-        // 2. 【数据处理阶段】循环处理数据行
-        for (int i = DataStartRow - 2; i < table.Rows.Count; i++)
+        foreach (var colInfo in originalHeader)
         {
-            DataRow row = table.Rows[i];
-            if (IsRowEmpty(row)) continue;
-
-            int id = ParseInt(row[IdColumnName]);
-            if (id == 0) continue; // ID为0或无效的行直接跳过
-
-            string name = row.Table.Columns.Contains("pawnName") ? ParseString(row["pawnName"]) : ParseString(row["Name"]);
-            
-            string assetPath = $"{outputPath}/{namePrefix}_{id}_{SanitizeFileName(name)}.asset";
-            var asset = GetOrCreateAsset<T>(assetPath);
-            string oldJson = JsonUtility.ToJson(asset);
-
-            // 3. 使用反射，根据预处理好的表头信息，填充对象数据
-            PopulateObject(asset, row, headerInfo);
-
-            // 4. 将填充好的资产注册到全局缓存，供其他导入器引用
-            // (注意：PopulateObject内部已经设置了asset的UniqueID)
-            ImporterCache.RegisterAsset(asset);
-
-            if (oldJson != JsonUtility.ToJson(asset))
+            var processedColumn = new ProcessedColumn { OriginalInfo = colInfo };
+            switch (colInfo.Keyword)
             {
-                EditorUtility.SetDirty(asset);
+                case "ref":
+                    processedColumn.Type = ColumnProcessingType.Ref;
+                    processedColumn.ProcessedData = PreCacheReferenceTable(colInfo.KeywordData);
+                    break;
+                case "path":
+                    processedColumn.Type = ColumnProcessingType.Path;
+                    processedColumn.ProcessedData = colInfo.KeywordData;
+                    break;
+                default:
+                    processedColumn.Type = ColumnProcessingType.Normal;
+                    processedColumn.ProcessedData = null;
+                    break;
             }
+            processedList.Add(processedColumn);
         }
-        Debug.Log($"成功处理工作表: {sheetName}");
+        return processedList;
     }
 
     /// <summary>
-    /// 【预处理器】解析表头，并对 "ref" 关键字执行预缓存操作。
+    /// 【步骤1】基础表头解析器。
+    /// 读取DataTable的头几行，返回一个标准化的 ColumnInfo 列表。
     /// </summary>
     private List<ColumnInfo> ParseHeader(DataTable table)
     {
-        // 初始化当前导入流程的引用缓存
-        _refCache = new Dictionary<string, Dictionary<int, string>>();
-
         var infoList = new List<ColumnInfo>();
         if (table.Rows.Count < 4)
         {
-            Debug.LogError("表头格式不正确，至少需要4行！");
+            Debug.LogError("[BaseDataImporter] 表头格式不正确，至少需要4行来进行预处理！");
             return infoList;
         }
 
@@ -124,111 +103,62 @@ public abstract class BaseDataImporter
 
         for (int i = 0; i < table.Columns.Count; i++)
         {
-            var colInfo = new ColumnInfo
+            infoList.Add(new ColumnInfo
             {
                 Index = i,
                 FieldName = row1_FieldName[i].ToString().Trim(),
-                Keyword = row3_Keyword[i].ToString().Trim().ToLower(), // 关键字转为小写，方便switch case
+                Keyword = row3_Keyword[i].ToString().Trim().ToLower(),
                 KeywordData = row4_KeywordData[i].ToString().Trim()
-            };
-
-            // 【核心预处理逻辑】
-            // 如果关键字是 ref 并且关键字数据（引用的表名）不为空
-            if (colInfo.Keyword == "ref" && !string.IsNullOrWhiteSpace(colInfo.KeywordData))
-            {
-                // 立即执行预缓存，读取引用表，建立ID->Name的映射
-                PreCacheReferenceTable(colInfo.KeywordData);
-            }
-
-            infoList.Add(colInfo);
+            });
         }
         return infoList;
     }
 
     /// <summary>
-    /// 使用反射，根据表头信息自动填充一个对象。
+    /// 【步骤2】引用预缓存器。
+    /// 读取指定的Excel工作表，提取其ID和Name/Tag列，并以字典形式返回。
     /// </summary>
-    private void PopulateObject(CardData asset, DataRow row, List<ColumnInfo> headerInfo)
+    private Dictionary<int, string> PreCacheReferenceTable(string refTablePath)
     {
-        Type assetType = asset.GetType();
-
-        foreach (var colInfo in headerInfo)
+        if (_preCachedRefTables.ContainsKey(refTablePath))
         {
-            if (string.IsNullOrWhiteSpace(colInfo.FieldName)) continue;
-            
-            FieldInfo field = assetType.GetField(colInfo.FieldName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
-            if (field == null) continue;
-
-            // 使用索引读取数据，比使用列名更安全
-            object cellValue = row[colInfo.Index];
-
-            switch (colInfo.Keyword)
-            {
-                case "path":
-                    string spriteName = ParseString(cellValue);
-                    field.SetValue(asset, LoadSprite(colInfo.KeywordData, spriteName));
-                    break;
-
-                case "ref":
-                    HandleRefField(asset, field, cellValue, colInfo);
-                    break;
-
-                default: // 处理普通数据
-                    if (cellValue != DBNull.Value && cellValue.ToString() != "*")
-                    {
-                        try
-                        {
-                            object convertedValue = Convert.ChangeType(cellValue, field.FieldType);
-                            field.SetValue(asset, convertedValue);
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogWarning($"转换字段 '{colInfo.FieldName}' 的值 '{cellValue}' 到 '{field.FieldType}' 时失败: {e.Message}");
-                        }
-                    }
-                    break;
-            }
+            return _preCachedRefTables[refTablePath];
         }
-        asset.UniqueID = ParseInt(row[IdColumnName]); // 确保ID被设置
-    }
-    
-    #endregion
-
-    #region Helper Methods (通用工具箱)
-
-    /// <summary>
-    /// 预缓存一个引用表，读取其ID和Name列，存入_refCache。
-    /// </summary>
-    private void PreCacheReferenceTable(string refTablePath)
-    {
-        if (_refCache.ContainsKey(refTablePath)) return; // 避免重复缓存
 
         Debug.Log($"[预处理] 开始预缓存引用表: {refTablePath}");
 
         string[] parts = refTablePath.Split('/');
         string excelName = parts[0];
-        string sheetName = (parts.Length > 1) ? parts[1] : null; // 默认取第一个sheet
-
+        string sheetName = (parts.Length > 1) ? parts[1] : null;
         string fullPath = $"Assets/Editor/Sheets/{excelName}";
 
-        // 使用静默模式读取，即使失败也不会在控制台打印Error，避免干扰
-        DataTable table = ReadExcelSheet(fullPath, sheetName, true);
-        if (table == null) return;
+        DataTable table = ReadExcelSheet(fullPath, sheetName);
+        if (table == null)
+        {
+            _preCachedRefTables[refTablePath] = new Dictionary<int, string>();
+            return _preCachedRefTables[refTablePath];
+        }
+        
+        string nameColumn = "Name";
+        if (table.Columns.Contains("name")) nameColumn = "name";
+        else if (table.Columns.Contains("Tag")) nameColumn = "Tag";
+        
+        string idColumn = "ID";
+        if (!table.Columns.Contains(idColumn) || !table.Columns.Contains(nameColumn))
+        {
+            Debug.LogWarning($"[预处理] 引用表 '{refTablePath}' 缺少 '{idColumn}' 或 '{nameColumn}' 列，无法建立映射。");
+            _preCachedRefTables[refTablePath] = new Dictionary<int, string>();
+            return _preCachedRefTables[refTablePath];
+        }
         
         var idNameMap = new Dictionary<int, string>();
-        string nameColumn = table.Columns.Contains("pawnName") ? "pawnName" : "Name";
-        if (!table.Columns.Contains(IdColumnName) || !table.Columns.Contains(nameColumn))
-        {
-            Debug.LogWarning($"[预处理] 引用表 '{refTablePath}' 缺少 'ID' 或 '{nameColumn}' 列，无法建立映射。");
-            return;
-        }
-
-        for (int i = DataStartRow - 2; i < table.Rows.Count; i++)
+        int dataStartRow = 5;
+        for (int i = dataStartRow - 2; i < table.Rows.Count; i++)
         {
             DataRow row = table.Rows[i];
             if (IsRowEmpty(row)) continue;
 
-            int id = ParseInt(row[IdColumnName]);
+            int id = ParseInt(row[idColumn]);
             string name = ParseString(row[nameColumn]);
 
             if (id != 0 && !idNameMap.ContainsKey(id))
@@ -237,73 +167,17 @@ public abstract class BaseDataImporter
             }
         }
 
-        _refCache[refTablePath] = idNameMap;
+        _preCachedRefTables[refTablePath] = idNameMap;
         Debug.Log($"[预处理] 成功缓存 {idNameMap.Count} 条来自 '{refTablePath}' 的 ID->Name 映射。");
+        return idNameMap;
     }
+    #endregion
     
-    /// <summary>
-    /// 统一处理 ref 关键字的字段填充逻辑
-    /// </summary>
-    private void HandleRefField(object asset, FieldInfo field, object cellValue, ColumnInfo colInfo)
-    {
-        // 1. 检查预缓存数据是否存在
-        if (!_refCache.TryGetValue(colInfo.KeywordData, out var idNameMap))
-        {
-            Debug.LogWarning($"未能找到表 '{colInfo.KeywordData}' 的预缓存数据，跳过字段 '{colInfo.FieldName}'");
-            return;
-        }
-
-        string[] idStrings = ParseString(cellValue).Split(';');
-
-        // 2. 判断字段是 List<T> 还是单个 T
-        if (field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(List<>))
-        {
-            // --- 列表引用 List<T> ---
-            var list = (System.Collections.IList)field.GetValue(asset);
-            list.Clear();
-            Type itemType = field.FieldType.GetGenericArguments()[0];
-
-            foreach (var idStr in idStrings)
-            {
-                if (int.TryParse(idStr.Trim(), out int id) && id != 0)
-                {
-                    // a. 使用预缓存验证ID合法性
-                    if (!idNameMap.ContainsKey(id))
-                    {
-                        Debug.LogWarning($"引用错误! 在表 '{colInfo.KeywordData}' 中找不到ID为 '{id}' 的记录。 (字段: {colInfo.FieldName})");
-                        continue;
-                    }
-
-                    // b. 从全局缓存获取最终的资产对象
-                    if (ImporterCache.UniversalCache.TryGetValue(id, out GameAsset refAsset) && itemType.IsAssignableFrom(refAsset.GetType()))
-                    {
-                        list.Add(refAsset);
-                    }
-                }
-            }
-        }
-        else
-        {
-            // --- 单个引用 T ---
-            if (idStrings.Length > 0 && int.TryParse(idStrings[0].Trim(), out int id) && id != 0)
-            {
-                if (!idNameMap.ContainsKey(id))
-                {
-                    Debug.LogWarning($"引用错误! 在表 '{colInfo.KeywordData}' 中找不到ID为 '{id}' 的记录。 (字段: {colInfo.FieldName})");
-                    return;
-                }
-
-                if (ImporterCache.UniversalCache.TryGetValue(id, out GameAsset refAsset) && field.FieldType.IsAssignableFrom(refAsset.GetType()))
-                {
-                    field.SetValue(asset, refAsset);
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// 检查一个DataRow是否完全为空。
-    /// </summary>
+    
+    
+    #region Helper Methods (通用工具箱 - 保持不变)
+    
+    
     protected bool IsRowEmpty(DataRow row)
     {
         if (row == null) return true;
@@ -315,15 +189,11 @@ public abstract class BaseDataImporter
         return true;
     }
 
-    /// <summary>
-    /// 读取指定的Excel文件和工作表，返回一个DataTable。
-    /// </summary>
-    /// <param name="isSilent">静默模式，失败时只返回null，不打印LogError</param>
-    protected DataTable ReadExcelSheet(string filePath, string sheetName, bool isSilent = false)
+    protected DataTable ReadExcelSheet(string filePath, string sheetName)
     {
         if (!File.Exists(filePath))
         {
-            if (!isSilent) Debug.LogError($"Excel文件未找到: {filePath}");
+            Debug.LogError($"Excel文件未找到: {filePath}");
             return null;
         }
         try
@@ -340,18 +210,12 @@ public abstract class BaseDataImporter
                     DataTableCollection tables = result.Tables;
                     DataTable table = null;
 
-                    if (string.IsNullOrEmpty(sheetName))
-                    {
-                        table = tables[0]; // 如果没指定sheet名，默认取第一个
-                    }
-                    else if (tables.Contains(sheetName))
-                    {
-                        table = tables[sheetName];
-                    }
+                    if (string.IsNullOrEmpty(sheetName)) table = tables[0];
+                    else if (tables.Contains(sheetName)) table = tables[sheetName];
 
                     if (table == null)
                     {
-                        if (!isSilent) Debug.LogError($"在 {filePath} 中未找到工作表 '{sheetName ?? "默认第一个"}'.");
+                        Debug.LogError($"在 {filePath} 中未找到工作表 '{sheetName ?? "默认第一个"}'.");
                         return null;
                     }
 
@@ -365,7 +229,7 @@ public abstract class BaseDataImporter
         }
         catch (Exception e)
         {
-            if (!isSilent) Debug.LogError($"读取Excel文件 {filePath} 时出错: {e.Message}");
+            Debug.LogError($"读取Excel文件 {filePath} 时出错: {e.Message}");
             return null;
         }
     }
@@ -378,11 +242,7 @@ public abstract class BaseDataImporter
         string fullPath = $"Assets/Resources/{normalizedBasePath}/{iconName}.png";
         
         var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(fullPath);
-
-        if (sprite == null)
-        {
-            Debug.LogWarning($"加载失败! 未能在路径 '{fullPath}' 找到Sprite资源。");
-        }
+        if (sprite == null) Debug.LogWarning($"加载失败! 未能在路径 '{fullPath}' 找到Sprite资源。");
         return sprite;
     }
     
@@ -392,7 +252,6 @@ public abstract class BaseDataImporter
         if (asset == null)
         {
             asset = ScriptableObject.CreateInstance<T>();
-            // 确保目录存在
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             AssetDatabase.CreateAsset(asset, path);
         }
@@ -409,7 +268,63 @@ public abstract class BaseDataImporter
         return name.Replace(" ", "_");
     }
 
-    // --- Primitive Type Parsers ---
+    
+    /// <summary>
+    /// 根据字段名，从DataRow中安全地获取并解析值。
+    /// </summary>
+    protected T GetValue<T>(DataRow row, Dictionary<string, ProcessedColumn> headerMap, string fieldName)
+    {
+        if (headerMap.TryGetValue(fieldName, out ProcessedColumn columnInfo))
+        {
+            object cellValue = row[columnInfo.OriginalInfo.Index];
+            if (typeof(T) == typeof(int)) return (T)(object)ParseInt(cellValue);
+            if (typeof(T) == typeof(string)) return (T)(object)ParseString(cellValue);
+            if (typeof(T) == typeof(bool)) return (T)(object)ParseBool(cellValue);
+            if (typeof(T) == typeof(float)) return (T)(object)ParseFloat(cellValue); // 确保 ParseFloat 存在于 BaseDataImporter
+        }
+        return default(T); // 如果找不到列，返回默认值
+    }
+
+    protected void PopulateTags(CardData asset, string tagsString)
+    {
+        asset.tags.Clear();
+        if (string.IsNullOrEmpty(tagsString)) return;
+
+        string[] tagIds = tagsString.Split(';');
+        foreach (var tagIdStr in tagIds)
+        {
+            if (int.TryParse(tagIdStr.Trim(), out int tagId))
+            {
+                if (ImporterCache.UniversalCache.TryGetValue(tagId, out GameAsset tagAsset) && tagAsset is TagData)
+                {
+                    asset.tags.Add(tagAsset as TagData);
+                }
+                else
+                {
+                    Debug.LogWarning($"处理卡牌 '{asset.name}' 时，未找到ID为 '{tagId}' 的标签。请先导入标签数据。");
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 专门用于获取Sprite类型的值。
+    /// </summary>
+    protected Sprite GetSpriteValue(DataRow row, Dictionary<string, ProcessedColumn> headerMap, string fieldName)
+    {
+        if (headerMap.TryGetValue(fieldName, out ProcessedColumn columnInfo))
+        {
+            if (columnInfo.Type == ColumnProcessingType.Path)
+            {
+                // 这就是您要的逻辑：从预处理结果中获取 base path
+                string basePath = (string)columnInfo.ProcessedData;
+                string spriteName = ParseString(row[columnInfo.OriginalInfo.Index]);
+                return LoadSprite(basePath, spriteName);
+            }
+        }
+        return null;
+    }
+    
     protected string ParseString(object cellValue, string defaultValue = "")
     {
         if (cellValue == null || cellValue == DBNull.Value) return defaultValue;
@@ -421,6 +336,12 @@ public abstract class BaseDataImporter
     {
         string valueStr = ParseString(cellValue, defaultValue.ToString());
         if (int.TryParse(valueStr, out int result)) return result;
+        return defaultValue;
+    }
+    protected float ParseFloat(object cellValue, float defaultValue = 0f)
+    {
+        string valueStr = ParseString(cellValue, defaultValue.ToString());
+        if (float.TryParse(valueStr, out float result)) return result;
         return defaultValue;
     }
     

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157c1f5abe5afe54fb24fac354c6bb42, type: 3}
   m_Name: Tag_1_Card
   m_EditorClassIdentifier: 
-  id: 1
+  UniqueID: 1
   tagName: Card
   description: "\u5361\u724C"
   parent: {fileID: 0}

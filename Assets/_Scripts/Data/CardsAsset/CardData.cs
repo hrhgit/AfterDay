@@ -45,7 +45,7 @@ public abstract class CardData : GameAsset
 
         while (cur != null && hops++ < MaxHops)
         {
-            if (cur.id == targetId) return true;
+            if (cur.UniqueID == targetId) return true;
             cur = cur.parent;
         }
         return false;

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157c1f5abe5afe54fb24fac354c6bb42, type: 3}
   m_Name: Tag_23_Energy
   m_EditorClassIdentifier: 
-  id: 23
+  UniqueID: 23
   tagName: Energy
   description: "\u80FD\u6E90\u7C7B\uFF0C\u5982\u7535\u6C60"
   parent: {fileID: 11400000, guid: 8cced774bce725f4fa552ec51a4ab39a, type: 2}

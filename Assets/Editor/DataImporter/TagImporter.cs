@@ -1,116 +1,97 @@
-using UnityEngine;
 using UnityEditor;
-using System.IO;
 using System.Data;
+using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// 专门负责从 Tags.xlsx 文件导入并生成 TagData 资产的编辑器工具。
+/// 标签数据导入器。
+/// 采用“两遍循环”的方式来正确建立标签的父子层级关系，
+/// 并将最终的TagData资产注册到全局的 ImporterCache 中。
 /// </summary>
 public class TagImporter : BaseDataImporter
 {
-    private const string ExcelPath = "Assets/Editor/Sheets/Tags.xlsx";
-    private const string OutputPath = "Assets/Resources/Data/Tags";
+    private const string TagsExcelPath = "Assets/Editor/Sheets/Tags.xlsx";
+    private const string TagsOutputPath = "Assets/Resources/Data/Tags";
+    private const string TagPrefix = "Tag";
 
+    /// <summary>
+    /// Unity菜单入口
+    /// </summary>
     [MenuItem("游戏工具/从Excel导入标签数据")]
     public static void RunImport()
     {
-        // 创建实例并调用父类的统一入口方法
+        // 在导入任何其他数据之前，通常应该先清理全局缓存并导入标签
+        ImporterCache.ClearCache();
+        
         new TagImporter().Import();
     }
-    
+
     /// <summary>
-    /// 实现父类要求的核心处理逻辑。
+    /// 实现父类要求的主处理方法。
     /// </summary>
     protected override void Process()
     {
         Debug.Log("--- 开始导入标签数据 ---");
-        
-        // 使用父类的 CacheTags 方法来初始化缓存
-        CacheTags();
 
-        DataTable table = ReadExcelSheet(ExcelPath, "Tags");
+        DataTable table = ReadExcelSheet(TagsExcelPath, "Tags");
         if (table == null) return;
-        
-        // --- 第一次遍历：创建或更新所有资产 ---
-        // 使用父类中定义的规则 (DataStartRow)
-        for (int i = DataStartRow - 2; i < table.Rows.Count; i++)
+
+        // 使用一个临时的本地字典来辅助完成“两遍循环”的逻辑
+        var localTagCache = new Dictionary<int, TagData>();
+
+        // =================================================================
+        // 第一遍循环 (Pass 1): 创建所有 TagData 资产
+        // =================================================================
+        // 在这一遍，我们只创建资产并填充基础数据，但不处理父子关系。
+        for (int i = 3; i < table.Rows.Count; i++) // 假设数据从第5行开始
         {
             DataRow row = table.Rows[i];
-            if (IsRowEmpty(row)) break;
+            if (IsRowEmpty(row)) continue;
 
             int id = ParseInt(row["ID"]);
-            string tagName = ParseString(row["Tag"]);
-            
-            if (id == 0 || string.IsNullOrWhiteSpace(tagName)) continue;
+            if (id == 0) continue;
 
-            string assetPath = $"{OutputPath}/Tag_{id}_{SanitizeFileName(tagName)}.asset";
+            string name = ParseString(row["name"]);
+            string assetPath = $"{TagsOutputPath}/{TagPrefix}_{id}_{SanitizeFileName(name)}.asset";
             
             var asset = GetOrCreateAsset<TagData>(assetPath);
-            string oldJson = JsonUtility.ToJson(asset);
             
-            asset.id = id;
-            asset.tagName = tagName;
-            asset.description = ParseString(row["note"]);
-            asset.parent = null; // 先重置父级，防止旧引用残留
+            // 填充基础字段
+            asset.UniqueID = id;
+            asset.tagName = name;
+            asset.description = ParseString(row["description"]);
+            asset.parent = null; // 关键：在第一遍循环中，暂时不设置父节点
 
-            if (oldJson != JsonUtility.ToJson(asset))
-            {
-                EditorUtility.SetDirty(asset);
-            }
-
-            // 更新缓存
-            if (!TagCache.ContainsKey(id))
-            {
-                TagCache.Add(id, asset);
-            }
+            // 将创建的资产存入本地缓存，并注册到全局缓存
+            localTagCache[id] = asset;
+            ImporterCache.RegisterAsset(asset);
+            
+            EditorUtility.SetDirty(asset);
         }
-        
-        // --- 第二次遍历：建立父子引用关系 ---
-        foreach (var asset in TagCache.Values)
+
+        // =================================================================
+        // 第二遍循环 (Pass 2): 建立父子关系
+        // =================================================================
+        // 在这一遍，我们遍历刚刚创建的所有资产，并为它们设置正确的父节点。
+        foreach (var asset in localTagCache.Values)
         {
-            // 规则：ID为两位数或更多，则表示有父级
-            if (asset.id >= 10)
+            int parentId = asset.UniqueID / 10; // 根据ID规则计算父ID (例如 21 -> 2)
+            
+            // 只有当父ID有效，并且不是自身时才查找
+            if (parentId > 0 && parentId != asset.UniqueID)
             {
-                int parentId = asset.id / 10; // 例如：21 -> 2
-                if (TagCache.TryGetValue(parentId, out TagData parentAsset))
+                // 从本地缓存中查找父节点资产
+                if (localTagCache.TryGetValue(parentId, out TagData parentAsset))
                 {
-                    if (asset.parent != parentAsset)
-                    {
-                        asset.parent = parentAsset;
-                        EditorUtility.SetDirty(asset);
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning($"标签 '{asset.tagName}' (ID: {asset.id}) 的父级标签 (ID: {parentId}) 不存在。");
+                    asset.parent = parentAsset;
+                    EditorUtility.SetDirty(asset);
                 }
             }
         }
-    }
-    /// <summary>
-    /// 一个静态方法，供其他导入器在运行前加载和缓存所有已存在的TagData资产。
-    /// </summary>
-    public static void CacheTags()
-    {
-        if (TagCache != null && TagCache.Count > 0) return; // 如果已经缓存，则跳过
-
-        Debug.Log("正在缓存所有TagData资产...");
-        TagCache = new Dictionary<int, TagData>();
         
-        // 从项目中查找所有已存在的TagData资产
-        var allGuids = AssetDatabase.FindAssets("t:TagData");
-        foreach(var guid in allGuids)
-        {
-            var path = AssetDatabase.GUIDToAssetPath(guid);
-            var tagAsset = AssetDatabase.LoadAssetAtPath<TagData>(path);
-            if(tagAsset != null && !TagCache.ContainsKey(tagAsset.id))
-            {
-                TagCache.Add(tagAsset.id, tagAsset);
-            }
-        }
-        Debug.Log($"已缓存 {TagCache.Count} 个标签。");
+        Debug.Log($"成功处理 'Tags' 工作表，创建/更新了 {localTagCache.Count} 个标签。");
     }
+
+    
 }
-

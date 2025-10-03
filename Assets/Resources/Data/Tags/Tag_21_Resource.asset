@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157c1f5abe5afe54fb24fac354c6bb42, type: 3}
   m_Name: Tag_21_Resource
   m_EditorClassIdentifier: 
-  id: 21
+  UniqueID: 21
   tagName: Resource
   description: "\u901A\u7528\u8D44\u6E90\uFF0C\u5982\u96F6\u4EF6"
   parent: {fileID: 11400000, guid: 8cced774bce725f4fa552ec51a4ab39a, type: 2}

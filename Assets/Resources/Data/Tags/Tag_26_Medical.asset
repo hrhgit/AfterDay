@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157c1f5abe5afe54fb24fac354c6bb42, type: 3}
   m_Name: Tag_26_Medical
   m_EditorClassIdentifier: 
-  id: 26
+  UniqueID: 26
   tagName: Medical
   description: "\u533B\u7597\u7528\u54C1 (\u672A\u6765\u6269\u5C55)"
   parent: {fileID: 11400000, guid: 8cced774bce725f4fa552ec51a4ab39a, type: 2}

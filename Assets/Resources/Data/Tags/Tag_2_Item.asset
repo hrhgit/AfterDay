@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 157c1f5abe5afe54fb24fac354c6bb42, type: 3}
   m_Name: Tag_2_Item
   m_EditorClassIdentifier: 
-  id: 2
+  UniqueID: 2
   tagName: Item
   description: "\u7269\u54C1"
   parent: {fileID: 0}
