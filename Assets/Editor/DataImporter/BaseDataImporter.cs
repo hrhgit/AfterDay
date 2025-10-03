@@ -148,7 +148,7 @@ public abstract class BaseDataImporter
     /// <summary>
     /// 使用反射，根据表头信息自动填充一个对象。
     /// </summary>
-    private void PopulateObject(CardData asset, DataRow row, List<ColumnInfo> headerInfo)
+    private void PopulateObject(GameAsset asset, DataRow row, List<ColumnInfo> headerInfo)
     {
         Type assetType = asset.GetType();
 
