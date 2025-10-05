@@ -17,6 +17,8 @@ public class CardImporter : BaseDataImporter
     [MenuItem("游戏工具/从Excel导入卡牌数据")]
     public static void RunImport()
     {
+        Debug.Log("[CardImporter] 依赖前置：正在自动执行标签导入，以确保标签数据为最新...");
+        
         new CardImporter().Import();
     }
 
@@ -25,11 +27,12 @@ public class CardImporter : BaseDataImporter
     /// </summary>
     protected override void Process()
     {
+        
         Debug.Log("--- 开始导入卡牌数据 ---");
-
+        var tagCache = LoadAllAssets<TagData>();
         // 分别处理 Robot 和 Human 工作表
-        ProcessPawnSheet<RobotPawnData>("Robot");
-        ProcessPawnSheet<HumanPawnData>("Human");
+        ProcessPawnSheet<RobotPawnData>("Robot", tagCache);
+        ProcessPawnSheet<HumanPawnData>("Human", tagCache);
     }
 
     /// <summary>
@@ -37,7 +40,7 @@ public class CardImporter : BaseDataImporter
     /// </summary>
     /// <typeparam name="T">要创建的具体Pawn类型 (RobotPawnData 或 HumanPawnData)</typeparam>
     /// <param name="sheetName">要处理的工作表名称</param>
-    private void ProcessPawnSheet<T>(string sheetName) where T : CardData
+    private void ProcessPawnSheet<T>(string sheetName, Dictionary<int, TagData> tagCache) where T : CardData
     {
         DataTable table = ReadExcelSheet(CardsExcelPath, sheetName);
         if (table == null) return;
@@ -47,18 +50,28 @@ public class CardImporter : BaseDataImporter
 
         // 2. 为了方便、高效地查询，将列表转换为字典
         var headerMap = header.ToDictionary(info => info.OriginalInfo.FieldName, info => info);
-
+        
         // 3. 循环处理数据行
-        for (int i = 3; i < table.Rows.Count; i++)
+        for (int i = DataStartRow-2; i < table.Rows.Count; i++)
         {
             DataRow row = table.Rows[i];
             if (IsRowEmpty(row)) continue;
-
+            
             int id = GetValue<int>(row, headerMap, "ID");
+            
             if (id == 0) continue;
-
-            string name = GetValue<string>(row, headerMap, "pawnName");
-            string assetPath = $"{PawnsOutputPath}/Pawn_{id}_{SanitizeFileName(name)}.asset";
+            
+            string name = GetValue<string>(row, headerMap, "name");
+            string type="";
+            if (sheetName == "Robot")
+            {
+                type = "RB";
+            }
+            else if (sheetName == "Human")
+            {
+                type = "HM";
+            }
+            string assetPath = $"{PawnsOutputPath}/{type}_{id}_{SanitizeFileName(name)}.asset";
 
             var asset = GetOrCreateAsset<T>(assetPath);
             string oldJson = JsonUtility.ToJson(asset);
@@ -74,7 +87,8 @@ public class CardImporter : BaseDataImporter
 
             // 填充 CardData (父类) 字段
             asset.name = name;
-            PopulateTags(asset, GetValue<string>(row, headerMap, "Tags"));
+            PopulateTags(asset, GetValue<string>(row, headerMap, "Tags"), tagCache);
+            
 
             // 填充具体子类的特有字段
             if (asset is RobotPawnData robotData)

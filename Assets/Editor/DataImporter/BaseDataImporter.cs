@@ -96,19 +96,23 @@ public abstract class BaseDataImporter
             Debug.LogError("[BaseDataImporter] 表头格式不正确，至少需要4行来进行预处理！");
             return infoList;
         }
-
-        var row1_FieldName = table.Rows[0].ItemArray;
-        var row3_Keyword = table.Rows[2].ItemArray;
-        var row4_KeywordData = table.Rows[3].ItemArray;
-
+        
+        var row3_Keyword = table.Rows[1].ItemArray;
+        var row4_KeywordData = table.Rows[2].ItemArray;
+        
         for (int i = 0; i < table.Columns.Count; i++)
         {
+            DataColumn column = table.Columns[i];
+            string fieldName = column.ColumnName; // 直接从列对象获取名称
+
+            if (string.IsNullOrEmpty(fieldName)) continue;
+
             infoList.Add(new ColumnInfo
             {
                 Index = i,
-                FieldName = row1_FieldName[i].ToString().Trim(),
-                Keyword = row3_Keyword[i].ToString().Trim().ToLower(),
-                KeywordData = row4_KeywordData[i].ToString().Trim()
+                FieldName = fieldName, // 来自Excel第1行
+                Keyword = row3_Keyword[i]?.ToString().Trim().ToLower(), // 来自Excel第3行
+                KeywordData = row4_KeywordData[i]?.ToString().Trim() // 来自Excel第4行
             });
         }
         return infoList;
@@ -130,7 +134,7 @@ public abstract class BaseDataImporter
         string[] parts = refTablePath.Split('/');
         string excelName = parts[0];
         string sheetName = (parts.Length > 1) ? parts[1] : null;
-        string fullPath = $"Assets/Editor/Sheets/{excelName}";
+        string fullPath = $"Assets/Editor/Sheets/{excelName}.xlsx";
 
         DataTable table = ReadExcelSheet(fullPath, sheetName);
         if (table == null)
@@ -234,6 +238,42 @@ public abstract class BaseDataImporter
         }
     }
     
+    /// <summary>
+    /// 【已重构 - 采用您的更优方案】
+    /// 加载项目中所有指定类型的 ScriptableObject 资产。
+    /// 它通过 AssetDatabase 全局搜索，不再局限于 Resources 文件夹。
+    /// </summary>
+    /// <typeparam name="T">要加载的资产类型 (必须继承自 GameAsset)。</typeparam>
+    /// <returns>一个以 UniqueID 为键，资产对象为值的字典。</returns>
+    protected Dictionary<int, T> LoadAllAssets<T>() where T : GameAsset
+    {
+        var assetCache = new Dictionary<int, T>();
+        
+        // 1. 使用 AssetDatabase.FindAssets 按类型搜索项目中所有匹配资产的GUID
+        // "t:{typeof(T).Name}" 会生成例如 "t:TagData" 或 "t:CardData" 的搜索指令
+        var allGuids = AssetDatabase.FindAssets($"t:{typeof(T).Name}");
+        
+        // 2. 遍历所有找到的GUID
+        foreach (var guid in allGuids)
+        {
+            // 3. 根据GUID获取资产的路径
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            
+            // 4. 根据路径加载资产
+            var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            
+            // 5. 将加载成功的资产添加到字典中
+            if (asset != null && !assetCache.ContainsKey(asset.UniqueID))
+            {
+                assetCache.Add(asset.UniqueID, asset);
+            }
+        }
+        
+        Debug.Log($"[LoadAllAssets] 通过全局搜索，加载了 {assetCache.Count} 个 '{typeof(T).Name}' 类型的资产。");
+        return assetCache;
+    }
+
+    
     protected static Sprite LoadSprite(string basePath, string iconName)
     {
         if (string.IsNullOrWhiteSpace(iconName)) return null;
@@ -274,18 +314,21 @@ public abstract class BaseDataImporter
     /// </summary>
     protected T GetValue<T>(DataRow row, Dictionary<string, ProcessedColumn> headerMap, string fieldName)
     {
+        
         if (headerMap.TryGetValue(fieldName, out ProcessedColumn columnInfo))
         {
+            
             object cellValue = row[columnInfo.OriginalInfo.Index];
+            
             if (typeof(T) == typeof(int)) return (T)(object)ParseInt(cellValue);
             if (typeof(T) == typeof(string)) return (T)(object)ParseString(cellValue);
             if (typeof(T) == typeof(bool)) return (T)(object)ParseBool(cellValue);
-            if (typeof(T) == typeof(float)) return (T)(object)ParseFloat(cellValue); // 确保 ParseFloat 存在于 BaseDataImporter
+            if (typeof(T) == typeof(float)) return (T)(object)ParseFloat(cellValue); 
         }
         return default(T); // 如果找不到列，返回默认值
     }
 
-    protected void PopulateTags(CardData asset, string tagsString)
+    protected void PopulateTags(CardData asset, string tagsString, Dictionary<int, TagData> tagCache)
     {
         asset.tags.Clear();
         if (string.IsNullOrEmpty(tagsString)) return;
@@ -293,15 +336,17 @@ public abstract class BaseDataImporter
         string[] tagIds = tagsString.Split(';');
         foreach (var tagIdStr in tagIds)
         {
+            
             if (int.TryParse(tagIdStr.Trim(), out int tagId))
             {
-                if (ImporterCache.UniversalCache.TryGetValue(tagId, out GameAsset tagAsset) && tagAsset is TagData)
+                // 从传入的 tagCache 字典中查找
+                if (tagCache.TryGetValue(tagId, out TagData tagAsset))
                 {
-                    asset.tags.Add(tagAsset as TagData);
+                    asset.tags.Add(tagAsset);
                 }
                 else
                 {
-                    Debug.LogWarning($"处理卡牌 '{asset.name}' 时，未找到ID为 '{tagId}' 的标签。请先导入标签数据。");
+                    Debug.LogWarning($"处理卡牌 '{asset.name}' 时，未在已加载的Tag资产中找到ID为 '{tagId}' 的标签。");
                 }
             }
         }

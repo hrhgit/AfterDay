@@ -13,7 +13,7 @@ public class ItemImporter : BaseDataImporter
     // --- 配置常量 ---
     private const string ItemsExcelPath = "Assets/Editor/Sheets/Items.xlsx";
     private const string ItemsOutputPath = "Assets/Resources/Data/Items";
-    private const string ItemPrefix = "Item";
+    private const string ItemPrefix = "IT";
 
     /// <summary>
     /// Unity菜单入口
@@ -21,6 +21,7 @@ public class ItemImporter : BaseDataImporter
     [MenuItem("游戏工具/从Excel导入物品数据")]
     public static void RunImport()
     {
+        Debug.Log("[CardImporter] 标签导入流程执行完毕。");
         new ItemImporter().Import();
     }
 
@@ -28,14 +29,15 @@ public class ItemImporter : BaseDataImporter
     protected override void Process()
     {
         Debug.Log("--- 开始导入物品数据 ---");
-        ProcessItemSheet("Items");
+        var tagCache = LoadAllAssets<TagData>();
+        ProcessItemSheet("Items", tagCache);
     }
 
     /// <summary>
     /// 处理单个物品工作表的核心逻辑。
     /// </summary>
     /// <param name="sheetName">要处理的工作表名称</param>
-    private void ProcessItemSheet(string sheetName)
+    private void ProcessItemSheet(string sheetName,Dictionary<int, TagData> tagCache)
     {
         DataTable table = ReadExcelSheet(ItemsExcelPath, sheetName);
         if (table == null) return;
@@ -52,9 +54,8 @@ public class ItemImporter : BaseDataImporter
 
             int id = GetValue<int>(row, headerMap, "ID");
             if (id == 0) continue;
-
-            // 注意：我们假设物品的名称列在Excel中为 "Name"
-            string name = GetValue<string>(row, headerMap, "Name");
+            
+            string name = GetValue<string>(row, headerMap, "name");
             string assetPath = $"{ItemsOutputPath}/{ItemPrefix}_{id}_{SanitizeFileName(name)}.asset";
 
             // 我们假设物品也使用 CardData 作为统一数据容器
@@ -69,9 +70,9 @@ public class ItemImporter : BaseDataImporter
             asset.icon = GetSpriteValue(row, headerMap, "icon");
 
             // 填充 CardData (父类) 字段
-            // 注意：我们将Excel中的 "Name" 列映射到 CardData 的 "pawnName" 字段
             asset.name = name;
-            PopulateTags(asset, GetValue<string>(row, headerMap, "Tag"));
+
+            PopulateTags(asset, GetValue<string>(row, headerMap, "Tags"), tagCache);
 
             // 填充物品特有的字段 (我们假设这些字段存在于 CardData 中)
             // 根据 Items.xlsx - Items.csv 文件中的列进行填充

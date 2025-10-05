@@ -1,32 +1,37 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "NewEvent", menuName = "Game Data/Event")]
+using UnityEngine;
+using System.Collections.Generic;
+
+// 用于定义探索事件可能带来的随机结果
+[System.Serializable]
+public class ExplorationOutcome
+{
+    [Tooltip("可能被触发解锁的事件")]
+    public EventData eventToUnlock;
+    
+    [Tooltip("触发此事件的概率 (0到1之间)")]
+    [Range(0f, 1f)]
+    public float chance;
+}
+
+[CreateAssetMenu(fileName = "Event_", menuName = "Game Data/Event")]
 public class EventData : GameAsset
 {
-    [Header("事件基本信息")]
     public string eventName;
     [TextArea] public string description;
-    public Sprite icon;
-    public enum EventType { Instant, Ongoing }
-    [Header("事件类型与耗时")]
-    
-    public EventType type = EventType.Instant;
-    [Tooltip("对于“持续事件”，需要多少回合来完成")]
-    public int durationInTurns = 0;
 
-    [Header("触发条件")]
-    public EventRequirement requirements;
+    [Header("解锁条件")]
+    [Tooltip("此事件出现必须满足的所有条件。留空则无条件。")]
+    public List<BaseUnlockCondition> unlockConditions;
 
-    [Header("交互式对话 (Ink)")]
-    [Tooltip("如果事件包含对话，引用对应的Ink JSON文件")]
-    public TextAsset inkStoryJson;
+    [Header("探索事件专属设置")]
+    [Tooltip("勾选此项，说明这是一个'探索'类型的事件。")]
+    public bool isExplorationEvent;
 
-    [Header("产生的结果")]
-    [Tooltip("用于处理80%的通用、固定结果")]
-    public EventResultData fixedResults;
-    [Tooltip("用于处理少数特别复杂、独特的事件结果")]
-    public List<Result> customResults;
+    [Tooltip("如果这是一个探索事件，定义探索可能随机解锁的其他事件及其概率。")]
+    public List<ExplorationOutcome> explorationOutcomes;
 }
 
 [System.Serializable]

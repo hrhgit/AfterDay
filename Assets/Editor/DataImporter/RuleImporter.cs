@@ -38,7 +38,7 @@ public class RuleImporter : BaseDataImporter
         Directory.CreateDirectory(OutputPath);
         
         // 这是RuleImporter特有的准备工作：预加载所有卡牌/物品资产
-        CacheAllGameAssets();
+        _assetDatabaseCache = LoadAllAssets<GameAsset>();
         
         // 注意：这里我们假设工作表名为 "Requirements"
         DataTable table = ReadExcelSheet(ExcelPath, "Requirements");
@@ -188,20 +188,7 @@ public class RuleImporter : BaseDataImporter
     /// <summary>
     /// 预加载项目中所有GameAsset到缓存字典中，以数字ID为键
     /// </summary>
-    private void CacheAllGameAssets()
-    {
-        _assetDatabaseCache = new Dictionary<int, GameAsset>();
-        var allGuids = AssetDatabase.FindAssets("t:GameAsset");
-        foreach (var guid in allGuids)
-        {
-            var path = AssetDatabase.GUIDToAssetPath(guid);
-            var asset = AssetDatabase.LoadAssetAtPath<GameAsset>(path);
-            if (asset != null && !_assetDatabaseCache.ContainsKey(asset.UniqueID))
-            {
-                _assetDatabaseCache.Add(asset.UniqueID, asset);
-            }
-        }
-    }
+    
 
     /// <summary>
     /// 一个能正确处理括号的字符串分割方法

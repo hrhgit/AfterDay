@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6bbaff7cf6e9374f9f67828307d85df, type: 3}
+  m_Name: default
+  m_EditorClassIdentifier: 
+  UniqueID: 0
+  scenarioName: default
+  description: 
+  playerCharacterBlueprint: {fileID: 11400000, guid: 157d7e56156a46e4295b4e605a2c3a74, type: 2}
+  startingRobots:
+  - {fileID: 11400000, guid: a03dae751ed36914585a00379c8b88b2, type: 2}
+  - {fileID: 11400000, guid: c9a88834cfea16e40924857fb1e4544c, type: 2}
+  startingItems:
+  - item: {fileID: 11400000, guid: a4bf676c4ac91254783327abd0a5f078, type: 2}
+    quantity: 2

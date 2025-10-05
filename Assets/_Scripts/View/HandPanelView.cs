@@ -57,6 +57,7 @@ public class HandPanelView : MonoBehaviour
             case DisplayType.Pawns:
                 // 显示所有棋子
                 var humanState = _characterManager.GetHumanState();
+                Debug.Log(humanState);
                 if (humanState != null)
                 {
                     var humanData = _dataManager.GetCardData(humanState.pawnDataID);
@@ -68,6 +69,8 @@ public class HandPanelView : MonoBehaviour
                     var robotData = _dataManager.GetCardData(robot.pawnDataID);
                     InstantiateHandObject(robotData, robot);
                 }
+
+                
                 break;
 
             case DisplayType.Items:
