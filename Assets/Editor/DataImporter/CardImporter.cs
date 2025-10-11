@@ -40,16 +40,14 @@ public class CardImporter : BaseDataImporter
     /// </summary>
     /// <typeparam name="T">要创建的具体Pawn类型 (RobotPawnData 或 HumanPawnData)</typeparam>
     /// <param name="sheetName">要处理的工作表名称</param>
-    private void ProcessPawnSheet<T>(string sheetName, Dictionary<int, TagData> tagCache) where T : CardData
+    private void ProcessPawnSheet<T>(string sheetName, Dictionary<int, GameAsset> tagCache) where T : CardData
     {
         DataTable table = ReadExcelSheet(CardsExcelPath, sheetName);
         if (table == null) return;
 
-        // 1. 【核心】调用父类的预处理方法，获取包含所有加工后信息的列表
-        List<ProcessedColumn> header = ProcessHeader(table);
+        List<ColumnInfo> header = ParseHeader(table);
+        var headerMap = header.ToDictionary(info => info.FieldName, info => info, System.StringComparer.OrdinalIgnoreCase);
 
-        // 2. 为了方便、高效地查询，将列表转换为字典
-        var headerMap = header.ToDictionary(info => info.OriginalInfo.FieldName, info => info);
         
         // 3. 循环处理数据行
         for (int i = DataStartRow-2; i < table.Rows.Count; i++)
@@ -87,8 +85,7 @@ public class CardImporter : BaseDataImporter
 
             // 填充 CardData (父类) 字段
             asset.name = name;
-            PopulateTags(asset, GetValue<string>(row, headerMap, "Tags"), tagCache);
-            
+            asset.tags=FindAssetsInCache<TagData>(GetValue<string>(row, headerMap, "Tags"), tagCache);
 
             // 填充具体子类的特有字段
             if (asset is RobotPawnData robotData)

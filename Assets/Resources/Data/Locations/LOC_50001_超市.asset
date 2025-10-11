@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa1d71460d6482147abf09427ff5930b, type: 3}
+  m_Name: "LOC_50001_\u8D85\u5E02"
+  m_EditorClassIdentifier: 
+  UniqueID: 50001
+  name: "\u8D85\u5E02"
+  description: "\u5E9F\u5F03\u7684\u8D85\u5E02\uFF0C\u91CC\u9762\u6709\u5F88\u591A\u7269\u8D44"
+  locationImage: {fileID: 0}
+  inherentEvent: {fileID: 11400000, guid: e00cd0430d99aba4bb384bea74ed34d7, type: 2}
+  potentialEvents: []
+  totalExplorations: 15
+  allRewards:
+  - card: {fileID: 11400000, guid: b5787a2f69863b54b971a7040ff97775, type: 2}
+    quantity: 6
+    rule:
+      earliestIndex: 0
+      latestIndex: 0
+      mean: 0
+      kappa: 0
+      peakBoost: 0
+      peakMaxPerPoint: 0
+      minDistanceBetweenSame: 0
+  - card: {fileID: 11400000, guid: 81c96c0491ddec047b3a3300eca9c344, type: 2}
+    quantity: 6
+    rule:
+      earliestIndex: 0
+      latestIndex: 0
+      mean: 0
+      kappa: 0
+      peakBoost: 0
+      peakMaxPerPoint: 0
+      minDistanceBetweenSame: 0
+  randomRewardPool: []

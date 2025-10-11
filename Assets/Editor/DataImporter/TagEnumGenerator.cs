@@ -43,9 +43,9 @@ public static class TagEnumGenerator
                 {
                     if (row.IsNull("ID")) break;
 
-                    string tagName = row["Tag"].ToString().Trim();
+                    string tagName = row["name"].ToString().Trim();
                     int tagId = int.Parse(row["ID"].ToString());
-                    string note = row["note"].ToString();
+                    string note = row["description"].ToString();
 
                     if (!string.IsNullOrWhiteSpace(tagName))
                     {

@@ -1,132 +1,112 @@
-using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine;
 
-/// <summary>
-/// 负责触发和管理游戏事件的生命周期。
-/// </summary>
 public class EventManager : MonoBehaviour
 {
     public static EventManager Instance { get; private set; }
-
-    // 依赖的其他管理器
-    private DataManager _dataManager;
+    
     private ItemManager _itemManager;
-    private DialogueManager _dialogueManager;
+    private CharacterManager _characterManager;
+    private LocationManager _locationManager; 
 
-    // 运行时状态
-    private readonly List<ActiveEventState> _activeEvents = new List<ActiveEventState>();
-    private IReadOnlyDictionary<int, EventData> _eventDatabase; // 从DataManager获取，设为只读
-
-    private void Awake()
-    {
-        if (Instance != null)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-    }
-
+    private void Awake() { Instance = this; }
     private void Start()
     {
-        // 1. 在Start中获取依赖，确保其他管理器的Instance已经准备好
-        _dataManager = DataManager.Instance;
+        // 【核心修改】通过单例的 Instance 属性自动获取引用
         _itemManager = ItemManager.Instance;
-        _dialogueManager = DialogueManager.Instance;
+        _characterManager = CharacterManager.Instance;
+        _locationManager = LocationManager.Instance;
 
-        
-        
-
-        // 订阅回合结束事件
-        GameEvents.OnTurnEnd += ProcessTurn;
-    }
-
-    private void OnDestroy()
-    {
-        // 在OnDestroy中取消订阅
-        GameEvents.OnTurnEnd -= ProcessTurn;
-        
-    }
-
-    public void TryTriggerEvent(int eventID)
-    {
-        if (!_eventDatabase.TryGetValue(eventID, out var eventData))
+        // 健壮性检查
+        if (_itemManager == null || _characterManager == null || _locationManager == null)
         {
-            Debug.LogWarning($"Event '{eventID}' not found in database.");
-            return;
-        }
-
-        if (!_itemManager.CheckRequirements(eventData.requirements))
-        {
-            Debug.Log($"Cannot trigger event '{eventData.eventName}': Requirements not met.");
-            return;
-        }
-
-        _itemManager.ConsumeRequirements(eventData.requirements); // 假设ItemManager有此方法
-
-        if (eventData.type == EventData.EventType.Ongoing)
-        {
-            _activeEvents.Add(new ActiveEventState { eventDataID = eventID, turnsRemaining = eventData.durationInTurns });
-            Debug.Log($"Ongoing event '{eventData.eventName}' started. Duration: {eventData.durationInTurns} turns.");
-        }
-        else // Instant
-        {
-            // 3. 调用提取出的通用方法
-            ExecuteEvent(eventData);
-        }
-        GameEvents.TriggerGameStateChanged();
-    }
-
-    private void ProcessTurn()
-    {
-        for (int i = _activeEvents.Count - 1; i >= 0; i--)
-        {
-            _activeEvents[i].turnsRemaining--;
-            if (_activeEvents[i].turnsRemaining <= 0)
-            {
-                if (_eventDatabase.TryGetValue(_activeEvents[i].eventDataID, out var finishedEventData))
-                {
-                    // 3. 调用提取出的通用方法
-                    ExecuteEvent(finishedEventData);
-                }
-                _activeEvents.RemoveAt(i);
-            }
+            Debug.LogError("[EventManager] 依赖的一个或多个管理器实例未找到！请确保场景中存在这些管理器。");
         }
     }
 
     /// <summary>
-    /// 3. 新增：执行一个事件（判断是否需要对话）
+    /// 【入口】通用的事件执行方法。
     /// </summary>
-    private void ExecuteEvent(EventData eventData)
+    public void TriggerEvent(EventData eventData, object context = null)
     {
-        if (eventData.inkStoryJson != null)
+        if (eventData == null) return;
+        
+        // 调用事件自己的Execute方法，并将EventManager自身作为参数传入
+        eventData.Execute(this, context);
+    }
+
+    /// <summary>
+    /// 【分派】专门处理探索事件的方法，由 ExplorationEventData 调用。
+    /// </summary>
+    public void HandleExplorationEvent(ExplorationEventData eventData, RobotState explorer)
+    {
+        // 这里需要找到探索事件对应的地点
+        // 这个逻辑取决于您的设计（例如，事件是否与特定地点强绑定）
+        // 假设我们能通过某种方式找到地点
+        LocationData targetLocation = FindLocationForEvent(eventData);
+
+        if (_locationManager != null && targetLocation != null)
         {
-            _dialogueManager.StartDialogue(eventData.inkStoryJson, eventData);
-        }
-        else
-        {
-            ResolveEventResults(eventData);
+            // 将请求转发给 LocationManager
+            _locationManager.PerformExploration(targetLocation, explorer);
         }
     }
 
-    public void ResolveEventResults(EventData eventData)
+    // 一个辅助方法，用于演示如何找到事件所属的地点
+    private LocationData FindLocationForEvent(EventData eventData)
     {
-        Debug.Log($"Resolving results for event '{eventData.eventName}'...");
-
-        // 处理固定结果
-        if (eventData.fixedResults != null)
+        // 实际项目中，您需要一个 DataManager 来快速查找
+        // 这里仅为示例
+        // foreach(var location in AllLocations)
+        // {
+        //    if(location.events.Contains(eventData)) return location;
+        // }
+        return null; 
+    }
+    
+    /// <summary>
+    /// 【已重构】一个通用的奖励发放方法。
+    /// 现在可以同时处理物品(ItemData)和角色(RobotPawnData等)奖励。
+    /// </summary>
+    /// <param name="rewards">包含奖励资产的 CardData 列表。</param>
+    public void GrantReward(List<CardReward> rewards)
+    {
+        if (rewards == null || rewards.Count == 0)
         {
-            // ... (处理 gainItems, loseItems, humanStateChange 等) ...
+            Debug.Log("奖励列表为空，无需发放。");
+            return;
         }
 
-        // 处理自定义结果资产
-        if (eventData.customResults != null)
+        Debug.Log($"开始发放 {rewards.Count} 种奖励...");
+
+        foreach (var reward in rewards)
         {
-            foreach (Result result in eventData.customResults)
+            if (reward == null || reward.card == null || reward.quantity <= 0) continue;
+
+            // --- 使用类型判断来分派奖励 ---
+
+            if (reward.card is ItemData item)
             {
-                result?.Execute(this); // 使用 ?. 安全调用
+                if (_itemManager != null)
+                {
+                    // 将奖励的数量传递给 AddItem 方法
+                    _itemManager.AddItem(item, reward.quantity);
+                    Debug.Log($" -> 已发放物品奖励: {item.name} x{reward.quantity}");
+                }
+            }
+            else if (reward.card is RobotPawnData robot)
+            {
+                if (_characterManager != null)
+                {
+                    // 根据数量，多次调用 AddPawn 方法
+                    for (int i = 0; i < reward.quantity; i++)
+                    {
+                        _characterManager.AddPawn(robot);
+                    }
+
+                    Debug.Log($" -> 已发放机器人奖励: {robot.name} x{reward.quantity}");
+                }
             }
         }
-        GameEvents.TriggerGameStateChanged();
     }
 }

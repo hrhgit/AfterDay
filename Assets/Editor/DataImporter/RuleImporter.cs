@@ -74,7 +74,7 @@ public class RuleImporter : BaseDataImporter
                     // 解析并添加类别
                     finalRule.requiredTags.Add(ParseEnum<Tags>(categoryStr, Tags.Card));
                 }
-                
+                int.TryParse(ruleID,out finalRule.UniqueID);
                 // 只有当类别信息发生变化时，才标记资产
                 if (oldJson != JsonUtility.ToJson(finalRule))
                 {
@@ -92,6 +92,15 @@ public class RuleImporter : BaseDataImporter
     {
         string finalAssetName = $"sub_{SanitizeFileName(id)}_{SanitizeFileName(name)}";
         string path = $"{OutputPath}/{finalAssetName}.asset";
+        req = req.Trim();
+        
+        if (req == "*")
+        {
+            // 如果需求是 '*'，则直接创建或获取 AlwaysValidRule
+            var TrueRule = GetOrCreateAsset<TrueRule>(path);
+            EditorUtility.SetDirty(TrueRule);
+            return TrueRule;
+        }
         
         var orParts = SplitRespectingParentheses(req, "||");
         if (orParts.Length > 1)

@@ -15,10 +15,10 @@ MonoBehaviour:
   UniqueID: 0
   scenarioName: default
   description: 
-  playerCharacterBlueprint: {fileID: 11400000, guid: 157d7e56156a46e4295b4e605a2c3a74, type: 2}
+  playerCharacterBlueprint: {fileID: 11400000, guid: 6c788ce0942979e4f8f030375cf4b97f, type: 2}
   startingRobots:
-  - {fileID: 11400000, guid: a03dae751ed36914585a00379c8b88b2, type: 2}
-  - {fileID: 11400000, guid: c9a88834cfea16e40924857fb1e4544c, type: 2}
+  - {fileID: 11400000, guid: 446ad2c0bb89dca4298ce95cfe201562, type: 2}
+  - {fileID: 11400000, guid: c6bc5a2c8cdc59e499a8304341a33089, type: 2}
   startingItems:
-  - item: {fileID: 11400000, guid: a4bf676c4ac91254783327abd0a5f078, type: 2}
+  - item: {fileID: 11400000, guid: b5787a2f69863b54b971a7040ff97775, type: 2}
     quantity: 2

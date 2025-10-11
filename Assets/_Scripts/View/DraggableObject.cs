@@ -23,8 +23,8 @@ public abstract class DraggableObject : MonoBehaviour, IBeginDragHandler, IDragH
         _handView = GetComponentInParent<HandPanelView>();
     }
 
-    // 子类必须实现这个方法，来定义如何根据数据填充自己的UI
-    public abstract void Populate(GameAsset data, object state);
+    
+    
 
     #region Drag Logic
     public virtual void OnBeginDrag(PointerEventData eventData)

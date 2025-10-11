@@ -9,7 +9,6 @@ using UnityEngine.UI;
 /// </summary>
 public class HandPanelView : MonoBehaviour
 {
-    // 定义这个面板要显示的内容类型
     public enum DisplayType { Pawns, Items }
 
     [Header("配置")]
@@ -19,7 +18,6 @@ public class HandPanelView : MonoBehaviour
     [SerializeField] private GameObject objectPrefab;
     
     [Header("UI 引用")]
-    [Tooltip("所有卡牌/令牌UI的父对象")]
     [SerializeField] private Transform container;
 
     // 管理器引用
@@ -27,15 +25,18 @@ public class HandPanelView : MonoBehaviour
     private CharacterManager _characterManager;
     private DataManager _dataManager;
 
-    // 拖拽相关运行时状态 (与之前CardHandView相同)
+    // ... (拖拽相关状态变量保持不变) ...
     private GameObject _placeholder = null;
+
     private AnimatedLayoutElement _animatedPlaceholder = null;
+
     private DraggableObject _draggingObject = null;
+
     public int PlaceholderSiblingIndex { get; private set; }
+
 
     void Awake()
     {
-        // 在Awake时获取引用，因为它可能会在Start之前被HandManager激活
         _itemManager = ItemManager.Instance;
         _characterManager = CharacterManager.Instance;
         _dataManager = DataManager.Instance;
@@ -46,61 +47,87 @@ public class HandPanelView : MonoBehaviour
     /// </summary>
     public void RefreshView()
     {
+        // 1. 清理旧的UI对象
         foreach (Transform child in container)
         {
             Destroy(child.gameObject);
         }
 
-        // 根据面板类型，决定从哪个管理器获取数据
+        // 2. 根据面板类型，决定从哪个管理器获取数据并调用对应的实例化方法
         switch (panelDisplayType)
         {
             case DisplayType.Pawns:
-                // 显示所有棋子
                 var humanState = _characterManager.GetHumanState();
-                Debug.Log(humanState);
                 if (humanState != null)
                 {
                     var humanData = _dataManager.GetCardData(humanState.pawnDataID);
-                    InstantiateHandObject(humanData, humanState);
+                    // 【已修改】调用专门为棋子准备的方法
+                    InstantiatePawnCard(humanData, humanState);
                 }
                 List<RobotState> robots = _characterManager.GetAllRobotStates();
                 foreach (var robot in robots)
                 {
                     var robotData = _dataManager.GetCardData(robot.pawnDataID);
-                    InstantiateHandObject(robotData, robot);
+                    // 【已修改】调用专门为棋子准备的方法
+                    InstantiatePawnCard(robotData, robot);
                 }
-
-                
                 break;
 
             case DisplayType.Items:
-                // 显示所有物品
-                Dictionary<int, int> stackedItems = _itemManager.GetStackedItems();
-                foreach (var itemEntry in stackedItems)
+                // 【已修改】这里的逻辑需要适配我们之前重构好的 ItemManager
+                List<ItemStack> inventory = _itemManager.GetInventory();
+                foreach (var itemStack in inventory)
                 {
-                    var itemData = _dataManager.GetItemData(itemEntry.Key);
-                    for (int i = 0; i < itemEntry.Value; i++)
-                    {
-                        InstantiateHandObject(itemData, null);
-                    }
-                }
-                List<ItemInstance> itemInstances = _itemManager.GetItemInstances();
-                foreach (var instance in itemInstances)
-                {
-                    var itemData = _dataManager.GetItemData(instance.itemID);
-                    InstantiateHandObject(itemData, instance);
+                    // 【已修改】调用专门为物品准备的方法
+                    InstantiateItemToken(itemStack);
                 }
                 break;
         }
     }
 
-    private void InstantiateHandObject(GameAsset data, object state)
+    // -----------------------------------------------------------------
+    // 【核心修改】将通用的 InstantiateHandObject 拆分为两个具体方法
+    // -----------------------------------------------------------------
+
+    /// <summary>
+    /// 实例化并填充一个“棋子”卡牌。
+    /// </summary>
+    private void InstantiatePawnCard(CardData data, object state)
     {
+        if (objectPrefab == null) return;
         GameObject newObject = Instantiate(objectPrefab, container);
-        var draggable = newObject.GetComponent<DraggableObject>();
-        if (draggable != null)
+        
+        // 假设您的棋子Prefab上挂载的是 CardView 脚本
+        var cardView = newObject.GetComponent<CardView>(); 
+        if (cardView != null)
         {
-            draggable.Populate(data, state);
+            // 直接调用 CardView 特有的 Populate 方法
+            cardView.Populate(data, state);
+        }
+        else
+        {
+            Debug.LogWarning($"棋子预制体 '{objectPrefab.name}' 上缺少 CardView 脚本！");
+        }
+    }
+
+    /// <summary>
+    /// 实例化并填充一个“物品”令牌。
+    /// </summary>
+    private void InstantiateItemToken(ItemStack stack)
+    {
+        if (objectPrefab == null) return;
+        GameObject newObject = Instantiate(objectPrefab, container);
+        
+        // 假设您的物品Prefab上挂载的是 TokenView 脚本
+        var tokenView = newObject.GetComponent<TokenView>();
+        if (tokenView != null)
+        {
+            // 直接调用 TokenView 特有的 Populate 方法
+            tokenView.Populate(stack);
+        }
+        else
+        {
+            Debug.LogWarning($"物品预制体 '{objectPrefab.name}' 上缺少 TokenView 脚本！");
         }
     }
     

@@ -37,14 +37,15 @@ public class ItemImporter : BaseDataImporter
     /// 处理单个物品工作表的核心逻辑。
     /// </summary>
     /// <param name="sheetName">要处理的工作表名称</param>
-    private void ProcessItemSheet(string sheetName,Dictionary<int, TagData> tagCache)
+    private void ProcessItemSheet(string sheetName,Dictionary<int, GameAsset> tagCache)
     {
         DataTable table = ReadExcelSheet(ItemsExcelPath, sheetName);
         if (table == null) return;
 
         // 1. 【核心】调用父类的预处理方法，获取所有加工后的列信息
-        List<ProcessedColumn> header = ProcessHeader(table);
-        var headerMap = header.ToDictionary(info => info.OriginalInfo.FieldName, info => info);
+        List<ColumnInfo> header = ParseHeader(table);
+        var headerMap = header.ToDictionary(info => info.FieldName, info => info, System.StringComparer.OrdinalIgnoreCase);
+
 
         // 2. 循环处理数据行
         for (int i = 3; i < table.Rows.Count; i++) // 假设数据从第5行开始
@@ -71,8 +72,8 @@ public class ItemImporter : BaseDataImporter
 
             // 填充 CardData (父类) 字段
             asset.name = name;
-
-            PopulateTags(asset, GetValue<string>(row, headerMap, "Tags"), tagCache);
+            asset.tags=FindAssetsInCache<TagData>(GetValue<string>(row, headerMap, "Tags"), tagCache);
+            
 
             // 填充物品特有的字段 (我们假设这些字段存在于 CardData 中)
             // 根据 Items.xlsx - Items.csv 文件中的列进行填充

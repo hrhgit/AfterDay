@@ -1,6 +1,28 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+
+/// <summary>
+/// 代表一个“物品堆”，包含物品的数据和数量。
+/// </summary>
+[System.Serializable]
+public class ItemStack
+{
+    public ItemData Data { get; private set; }
+    public int Quantity { get; private set; }
+    public int turnsRemaining; // 用于处理腐烂
+
+    public ItemStack(ItemData data, int quantity = 1)
+    {
+        Data = data;
+        Quantity = quantity;
+        turnsRemaining = data.spoilageTurns; // 从蓝图中初始化腐烂回合数
+    }
+
+    public void AddQuantity(int amount) { Quantity += amount; }
+    public void RemoveQuantity(int amount) { Quantity -= amount; }
+}
+
 public class ItemData : CardData // 继承自GameAsset以获得UniqueID
 {
     
@@ -20,5 +42,4 @@ public class ItemData : CardData // 继承自GameAsset以获得UniqueID
     {
         return spoilageTurns > 0;
     }
-    
 }

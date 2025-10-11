@@ -2,31 +2,29 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
+// 您需要确保项目中存在这个 ItemStack 类
+
+
+
 /// <summary>
-/// 管理游戏中所有非角色单位的物品和资源。
-/// (原 InventoryManager)
+/// 管理游戏中所有非角色单位的物品和资源 (已适配统一堆叠逻辑)。
 /// </summary>
-public class ItemManager : MonoBehaviour // <--- 名称已更改
+public class ItemManager : MonoBehaviour
 {
-    public static ItemManager Instance { get; private set; } // <--- 名称已更改
+    public static ItemManager Instance { get; private set; }
 
-    // 运行时的数据存储
-    private Dictionary<int, int> _stackedItems = new Dictionary<int, int>();
-    private List<ItemInstance> _itemInstances = new List<ItemInstance>(); // <--- 名称已更改
+    // 【核心修改】所有物品，无论是否可堆叠或腐烂，都统一存储在这个列表中
+    private List<ItemStack> _inventory = new List<ItemStack>();
 
+    #region Unity Lifecycle
     private void Awake()
     {
-        if (Instance != null)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
     }
 
     private void Start()
     {
-        // 假设TurnManager会在启动后才触发事件
         // GameEvents.OnTurnEnd += ProcessSpoilage; 
     }
 
@@ -34,212 +32,161 @@ public class ItemManager : MonoBehaviour // <--- 名称已更改
     {
         // GameEvents.OnTurnEnd -= ProcessSpoilage;
     }
+    #endregion
 
     #region Initialization & Setup
-
-    /// <summary>
-    /// 初始化新游戏的物品库存。
-    /// </summary>
-    public void SetupNewGame(List<ItemReward> startingItems)
+    public void SetupNewGame(List<CardReward> startingItems)
     {
-        // 1. 清空旧的库存
-        _stackedItems.Clear();
-        _itemInstances.Clear();
+        _inventory.Clear(); // 只需清空一个列表
 
-        // 2. 根据剧本添加初始物品
         if (startingItems != null)
         {
-            foreach (var itemReward in startingItems)
+            foreach (var cardReward in startingItems)
             {
-                AddItem(itemReward.item, itemReward.quantity);
+                AddItem(cardReward.card as ItemData, cardReward.quantity);
             }
         }
         
         Debug.Log("ItemManager: New game setup complete.");
-        GameEvents.TriggerGameStateChanged(); // 在所有物品添加完毕后，通知一次UI即可
+        GameEvents.TriggerGameStateChanged();
     }
-
     #endregion
     
-     #region Public API - 物品操作
+    #region Public API - 物品操作
 
-     /// <summary>
-     /// 向库存添加物品。
-     /// </summary>
-     public void AddItem(ItemData item, int quantity = 1)
-     {
-         if (item == null || quantity <= 0) return;
- 
-         if (item.isStackable && !item.DoesSpoil())
-         {
-             // 对于可堆叠且不腐烂的物品，存入字典
-             if (!_stackedItems.ContainsKey(item.UniqueID))
-             {
-                 _stackedItems[item.UniqueID] = 0;
-             }
-             _stackedItems[item.UniqueID] += quantity;
-         }
-         else
-         {
-             // 对于不可堆叠或会腐烂的物品，创建实例
-             for (int i = 0; i < quantity; i++)
-             {
-                 _itemInstances.Add(new ItemInstance(item.UniqueID, item.spoilageTurns));
-             }
-         }
- 
-         Debug.Log($"Added {quantity} of '{item.name}' to inventory.");
-         GameEvents.TriggerGameStateChanged(); // 通知UI和其他系统
-     }
- 
-     /// <summary>
-     /// 从库存消耗指定数量的物品。
-     /// </summary>
-     public void ConsumeItem(int itemID, int quantity = 1)
-     {
-         if (quantity <= 0 || !HasItem(itemID, quantity))
-         {
-             Debug.LogWarning($"Attempted to consume {quantity} of '{itemID}', but not enough in inventory.");
-             return;
-         }
-         
-         ItemData itemData = DataManager.Instance.GetItemData(itemID);
- 
-         if (itemData.isStackable && !itemData.DoesSpoil())
-         {
-             _stackedItems[itemID] -= quantity;
-             if (_stackedItems[itemID] <= 0)
-             {
-                 _stackedItems.Remove(itemID);
-             }
-         }
-         else
-         {
-             int countToRemove = quantity;
-             // 从后往前遍历以安全地移除元素
-             for (int i = _itemInstances.Count - 1; i >= 0; i--)
-             {
-                 if (countToRemove > 0 && _itemInstances[i].itemID == itemID)
-                 {
-                     _itemInstances.RemoveAt(i);
-                     countToRemove--;
-                 }
-             }
-         }
- 
-         Debug.Log($"Consumed {quantity} of '{itemData.name}'.");
-         GameEvents.TriggerGameStateChanged();
-     }
-     /// <summary>
-     /// 消耗一组物品需求。
-     /// </summary>
-     public void ConsumeRequirements(EventRequirement requirement)
-     {
-         if (requirement?.requiredItems == null) return;
+    /// <summary>
+    /// 【已重写】向库存添加物品，采用统一的堆叠逻辑。
+    /// </summary>
+    public void AddItem(ItemData item, int quantity = 1)
+    {
+        if (item == null || quantity <= 0) return;
 
-         foreach (var reqItem in requirement.requiredItems)
-         {
-             // 注意：我们之前的方法名叫 ConsumeItem
-             ConsumeItem(reqItem.item.UniqueID, reqItem.amount);
-         }
-     }
+        if (item.isStackable)
+        {
+            // 对于可堆叠物品 (无论是否腐烂)
+            // 查找已存在的、且未满的堆叠
+            ItemStack existingStack = _inventory.FirstOrDefault(stack => 
+                stack.Data == item && stack.Quantity < item.maxStackSize);
+
+            if (existingStack != null)
+            {
+                // 找到了，增加数量直到堆叠满
+                int spaceLeft = item.maxStackSize - existingStack.Quantity;
+                int amountToAdd = Mathf.Min(quantity, spaceLeft);
+                existingStack.AddQuantity(amountToAdd);
+                quantity -= amountToAdd;
+            }
+
+            // 如果还有剩余 (因为填满了旧堆叠或没找到旧堆叠)
+            // 则为剩余的物品创建新堆叠
+            while (quantity > 0)
+            {
+                int amountInNewStack = Mathf.Min(quantity, item.maxStackSize);
+                _inventory.Add(new ItemStack(item, amountInNewStack));
+                quantity -= amountInNewStack;
+            }
+        }
+        else
+        {
+            // 对于不可堆叠物品，每个都创建一个数量为1的新堆叠
+            for (int i = 0; i < quantity; i++)
+            {
+                _inventory.Add(new ItemStack(item, 1));
+            }
+        }
+
+        Debug.Log($"Added {item.name}.");
+        GameEvents.TriggerGameStateChanged();
+    }
+
+    /// <summary>
+    /// 【已重写】从库存消耗指定数量的物品。
+    /// </summary>
+    public void ConsumeItem(int itemID, int quantity = 1)
+    {
+        if (quantity <= 0) return;
+
+        // 从后往前遍历，以便在移除空堆叠时不会出错
+        for (int i = _inventory.Count - 1; i >= 0; i--)
+        {
+            if (quantity <= 0) break; // 已移除足够数量
+
+            ItemStack stack = _inventory[i];
+            if (stack.Data.UniqueID == itemID)
+            {
+                int amountToRemove = Mathf.Min(quantity, stack.Quantity);
+                stack.RemoveQuantity(amountToRemove);
+                quantity -= amountToRemove;
+
+                if (stack.Quantity <= 0)
+                {
+                    _inventory.RemoveAt(i);
+                }
+            }
+        }
+        GameEvents.TriggerGameStateChanged();
+    }
      
-     /// <summary>
-     /// RemoveItem的别名，或ConsumeItem的别名。确保命名统一。
-     /// 如果事件结果中使用RemoveItem，我们可以让它直接调用ConsumeItem。
-     /// </summary>
-     public void RemoveItem(ItemData item, int quantity = 1)
-     {
-         ConsumeItem(item.UniqueID, quantity);
-     }
-
- 
-     #endregion
+    public void RemoveItem(ItemData item, int quantity = 1)
+    {
+        ConsumeItem(item.UniqueID, quantity);
+    }
+    
+    #endregion
  
     #region Public API - 查询
 
     /// <summary>
-    /// 检查是否有足够数量的特定物品。
+    /// 【已重写】检查是否有足够数量的特定物品。
     /// </summary>
     public bool HasItem(int itemID, int quantity = 1)
     {
         int totalCount = 0;
-        
-        // 检查可堆叠物品
-        if (_stackedItems.TryGetValue(itemID, out int stackedCount))
+        // 遍历统一的库存列表，累加所有匹配ID的物品数量
+        foreach(var stack in _inventory)
         {
-            totalCount += stackedCount;
+            if (stack.Data.UniqueID == itemID)
+            {
+                totalCount += stack.Quantity;
+            }
         }
-
-        // 检查实例物品
-        // totalCount += _itemInstances.Count(instance => instance.itemID == itemID);
-        foreach(var instance in _itemInstances)
-        {
-            if (instance.itemID == itemID) totalCount++;
-        }
-
         return totalCount >= quantity;
     }
     
-    /// <summary>
-    /// 检查是否满足一组物品需求。
-    /// </summary>
-    public bool CheckRequirements(EventRequirement requirement)
-    {
-        if (requirement?.requiredItems == null) return true;
-
-        foreach (var reqItem in requirement.requiredItems)
-        {
-            if (!HasItem(reqItem.item.UniqueID, reqItem.amount))
-            {
-                return false; // 只要有一个不满足，就返回false
-            }
-        }
-        return true;
-    }
-    
-    /// <summary>
-    /// 获取所有可堆叠物品的副本字典。
-    /// 返回副本是为了防止外部脚本直接修改库存数据。
-    /// </summary>
-    public Dictionary<int, int> GetStackedItems()
-    {
-        return new Dictionary<int, int>(_stackedItems);
-    }
+    // CheckRequirements 方法无需修改，因为它依赖于 HasItem
 
     /// <summary>
-    /// 获取所有独特或会腐烂物品的实例副本列表。
-    /// 返回副本是为了保护内部列表的完整性。
+    /// 【新增】获取统一库存的完整副本，供UI显示。
     /// </summary>
-    public List<ItemInstance> GetItemInstances()
+    public List<ItemStack> GetInventory()
     {
-        return new List<ItemInstance>(_itemInstances);
+        return new List<ItemStack>(_inventory);
     }
+
+    // GetStackedItems 和 GetItemInstances 方法已废弃，由 GetInventory() 替代
 
     #endregion
 
     #region Turn Logic
 
     /// <summary>
-    /// 处理物品腐烂，应在每回合结束时由TurnManager调用。
+    /// 【已重写】处理物品腐烂。
     /// </summary>
     public void ProcessSpoilage()
     {
         bool inventoryChanged = false;
-        // 从后往前遍历以安全地移除元素
-        for (int i = _itemInstances.Count - 1; i >= 0; i--)
+        for (int i = _inventory.Count - 1; i >= 0; i--)
         {
-            var instance = _itemInstances[i];
-            if (instance.turnsRemaining > 0) // -1表示永不腐烂
+            var stack = _inventory[i];
+            // 只处理需要腐烂的物品堆 (spoilageTurns > 0)
+            if (stack.Data.spoilageTurns > 0 && stack.turnsRemaining > 0)
             {
-                instance.turnsRemaining--;
-                if (instance.turnsRemaining == 0)
+                stack.turnsRemaining--;
+                if (stack.turnsRemaining == 0)
                 {
-                    Debug.Log($"An item '{instance.itemID}' has spoiled and was removed.");
-                    _itemInstances.RemoveAt(i);
+                    Debug.Log($"An item '{stack.Data.name}' has spoiled and the stack was removed.");
+                    _inventory.RemoveAt(i);
                     inventoryChanged = true;
-                    // 可选：在这里添加一个“腐烂的食物”到库存
-                    // AddItem(DataManager.Instance.GetItemData("item_food_spoiled"), 1);
                 }
             }
         }
@@ -249,30 +196,20 @@ public class ItemManager : MonoBehaviour // <--- 名称已更改
             GameEvents.TriggerGameStateChanged();
         }
     }
-
     #endregion
     
     #region Save & Load
-    /// <summary>
-    /// 获取当前库存状态以供存档。
-    /// </summary>
-    public ItemsState GetState() // <--- 返回类型已更改
+    
+    // 存档和读档现在也变得更简单
+    
+    public List<ItemStack> GetState()
     {
-        return new ItemsState // <--- 返回类型已更改
-        {
-            stackedItems = new Dictionary<int, int>(_stackedItems),
-            itemInstances = new List<ItemInstance>(_itemInstances) // <--- 名称已更改
-        };
+        return _inventory;
     }
 
-    /// <summary>
-    /// 从存档数据中恢复库存状态。
-    /// </summary>
-    public void SetState(ItemsState state) // <--- 参数类型已更改
+    public void SetState(List<ItemStack> state)
     {
-        _stackedItems = state.stackedItems ?? new Dictionary<int, int>();
-        _itemInstances = state.itemInstances ?? new List<ItemInstance>(); // <--- 名称已更改
-        
+        _inventory = state ?? new List<ItemStack>();
         Debug.Log("ItemManager state loaded.");
         GameEvents.TriggerGameStateChanged();
     }

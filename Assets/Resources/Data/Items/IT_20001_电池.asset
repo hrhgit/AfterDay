@@ -18,8 +18,8 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: 23e172155be394e4c9105c4b8ecae158, type: 3}
   tags:
   - {fileID: 11400000, guid: 8cced774bce725f4fa552ec51a4ab39a, type: 2}
-  - {fileID: 11400000, guid: e7e4d8b0f5637b048ae7af2c2d31777b, type: 2}
-  isConsumable: 0
-  isStackable: 0
+  - {fileID: 11400000, guid: c77e584f295efef48b5ad48c12328c71, type: 2}
+  isConsumable: 1
+  isStackable: 1
   maxStackSize: 999
   spoilageTurns: -1

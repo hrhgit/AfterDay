@@ -21,9 +21,6 @@ public class TagImporter : BaseDataImporter
     [MenuItem("游戏工具/从Excel导入标签数据")]
     public static void RunImport()
     {
-        // 在导入任何其他数据之前，通常应该先清理全局缓存并导入标签
-        ImporterCache.ClearCache();
-        
         new TagImporter().Import();
     }
 
@@ -65,7 +62,6 @@ public class TagImporter : BaseDataImporter
 
             // 将创建的资产存入本地缓存，并注册到全局缓存
             localTagCache[id] = asset;
-            ImporterCache.RegisterAsset(asset);
             
             EditorUtility.SetDirty(asset);
         }

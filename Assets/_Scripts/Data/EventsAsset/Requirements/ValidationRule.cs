@@ -5,7 +5,7 @@ using System.Collections.Generic;
 /// 所有验证规则的抽象基类。
 /// (已集成了通用的、基于标签的验证功能)
 /// </summary>
-public abstract class ValidationRule : ScriptableObject
+public abstract class ValidationRule : GameAsset
 {
     [Header("基础验证：标签")]
     [Tooltip("此规则要求卡牌必须拥有的标签。如果列表为空，则不按标签筛选。")]

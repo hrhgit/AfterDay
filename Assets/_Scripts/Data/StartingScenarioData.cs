@@ -22,5 +22,5 @@ public class StartingScenarioData : GameAsset // 继承GameAsset以保持一致�
 
     [Header("初始资源")]
     [Tooltip("开局时就拥有的物品和资源")]
-    public List<ItemReward> startingItems; // 复用我们之前为事件结果定义的ItemReward
+    public List<CardReward> startingItems; // 复用我们之前为事件结果定义的CardReward
 }
